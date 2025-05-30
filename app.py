@@ -33,9 +33,10 @@ class LineFollower:
         
         # 제어 파라미터
         self.image_center = 1920 // 2
-        self.steering_sensitivity = 1
+        self.steering_sensitivity = 0.9
         self.base_speed = 1565
         self.max_steering = 2000
+        self.backword_speed = 1430
         
         # 라인 검출 파라미터
         self.roi_height = 600
@@ -204,7 +205,7 @@ class LineFollower:
         roi = gray[roi_y_start:roi_y_end, :]
         
         blurred = cv2.GaussianBlur(roi, (5, 5), 0)
-        _, binary = cv2.threshold(blurred, 160, 255, cv2.THRESH_BINARY_INV)
+        _, binary = cv2.threshold(blurred, 180, 255, cv2.THRESH_BINARY_INV)
         
         kernel = np.ones((3, 3), np.uint8)
         binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
@@ -215,11 +216,13 @@ class LineFollower:
         line_center = None
         if contours:
             largest_contour = max(contours, key=cv2.contourArea)
-            if cv2.contourArea(largest_contour) > 100:
+            if cv2.contourArea(largest_contour) > 800:
                 M = cv2.moments(largest_contour)
                 if M['m00'] != 0:
                     cx = int(M['m10'] / M['m00'])
                     line_center = cx
+            else:
+                line_center = None
         
         return binary, line_center, roi_y_start
     
@@ -283,7 +286,7 @@ class LineFollower:
                 if line_center is not None:
                     speed_pwm = self.base_speed
                 else:
-                    speed_pwm = 1500
+                    speed_pwm =  self.backword_speed
                 
                 self.current_speed = speed_pwm
                 self.current_steering = steering_pwm
