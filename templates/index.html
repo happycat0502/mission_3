@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>라인 추적 자율주행 시스템</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .video-section {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 640px;
+            margin: 0 auto;
+        }
+
+        #videoFeed {
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .connection-status {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .connection-status.connected {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .connection-status.disconnected {
+            background: #f44336;
+            color: white;
+        }
+
+        .control-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            height: fit-content;
+        }
+
+        .control-panel h2 {
+            margin-bottom: 20px;
+            color: #333;
+            text-align: center;
+            font-size: 1.5rem;
+        }
+
+        .status-grid {
+            display: grid;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .status-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .status-item label {
+            font-weight: bold;
+            color: #555;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .status-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .running-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-left: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .running-indicator.active {
+            background: #4CAF50;
+            box-shadow: 0 0 10px #4CAF50;
+        }
+
+        .running-indicator.inactive {
+            background: #ccc;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+
+        .controls {
+            display: grid;
+            gap: 15px;
+        }
+
+        .control-button {
+            padding: 15px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .start-button {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .start-button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+        }
+
+        .stop-button {
+            background: #f44336;
+            color: white;
+        }
+
+        .stop-button:hover {
+            background: #da190b;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(244, 67, 54, 0.3);
+        }
+
+        .stats-section {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            grid-column: 1 / -1;
+        }
+
+        .stats-title {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 1.3rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border-left: 4px solid #667eea;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 300px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-right: 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚗 라인 추적 자율주행 시스템</h1>
+            <p>실시간 영상 모니터링 및 제어 시스템</p>
+        </div>
+
+        <div class="main-content">
+            <div class="video-section">
+                <div class="video-container">
+                    <div id="loadingMessage" class="loading">
+                        <div class="spinner"></div>
+                        연결 중...
+                    </div>
+                    <img id="videoFeed" style="display: none;" alt="실시간 영상 피드">
+                    <div id="connectionStatus" class="connection-status disconnected">연결 안됨</div>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <h2>제어 패널</h2>
+                
+                <div class="status-grid">
+                    <div class="status-item">
+                        <label for="speedValue">속도 (PWM)</label>
+                        <div class="status-value" id="speedValue">1500</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="speedProgress" style="width: 50%"></div>
+                        </div>
+                    </div>
+
+                    <div class="status-item">
+                        <label for="steeringValue">조향 (PWM)</label>
+                        <div class="status-value" id="steeringValue">1500</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="steeringProgress" style="width: 50%"></div>
+                        </div>
+                    </div>
+
+                    <div class="status-item">
+                        <label for="runningStatus">자율주행 상태</label>
+                        <div class="status-value">
+                            <span id="runningStatus">중지</span>
+                            <span class="running-indicator inactive" id="runningIndicator"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="controls">
+                    <button class="control-button start-button" onclick="sendCommand('start')">
+                        ▶️ 자율주행 시작
+                    </button>
+                    <button class="control-button stop-button" onclick="sendCommand('stop')">
+                        ⏹️ 자율주행 정지
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-section">
+            <h3 class="stats-title">📊 시스템 통계</h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="frameCount">0</div>
+                    <div class="stat-label">총 프레임 수</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="fps">0</div>
+                    <div class="stat-label">FPS</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="uptime">00:00</div>
+                    <div class="stat-label">연결 시간</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="dataReceived">0KB</div>
+                    <div class="stat-label">수신 데이터</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws;
+        let frameCount = 0;
+        let startTime = Date.now();
+        let totalDataReceived = 0;
+        let lastFrameTime = Date.now();
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = function() {
+                console.log('WebSocket 연결됨');
+                document.getElementById('connectionStatus').textContent = '연결됨';
+                document.getElementById('connectionStatus').className = 'connection-status connected';
+                document.getElementById('loadingMessage').style.display = 'none';
+                document.getElementById('videoFeed').style.display = 'block';
+            };
+            
+            ws.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    // 이미지 업데이트
+                    if (data.image) {
+                        document.getElementById('videoFeed').src = 'data:image/jpeg;base64,' + data.image;
+                        frameCount++;
+                        updateStats();
+                    }
+                    
+                    // 상태 정보 업데이트
+                    updateControlPanel(data);
+                    
+                    // 데이터 사용량 업데이트
+                    totalDataReceived += event.data.length;
+                    
+                } catch (error) {
+                    console.error('데이터 파싱 오류:', error);
+                }
+            };
+            
+            ws.onclose = function() {
+                console.log('WebSocket 연결 끊어짐');
+                document.getElementById('connectionStatus').textContent = '연결 끊어짐';
+                document.getElementById('connectionStatus').className = 'connection-status disconnected';
+                document.getElementById('videoFeed').style.display = 'none';
+                document.getElementById('loadingMessage').style.display = 'flex';
+                document.getElementById('loadingMessage').innerHTML = '<div class="spinner"></div>재연결 시도 중...';
+                
+                // 3초 후 재연결 시도
+                setTimeout(connectWebSocket, 3000);
+            };
+            
+            ws.onerror = function(error) {
+                console.error('WebSocket 오류:', error);
+            };
+        }
+
+        function updateControlPanel(data) {
+            // 속도 업데이트
+            if (data.speed !== undefined) {
+                document.getElementById('speedValue').textContent = data.speed;
+                const speedPercent = ((data.speed - 1000) / 1000) * 100;
+                document.getElementById('speedProgress').style.width = Math.max(0, Math.min(100, speedPercent)) + '%';
+            }
+            
+            // 조향 업데이트
+            if (data.steering !== undefined) {
+                document.getElementById('steeringValue').textContent = data.steering;
+                const steeringPercent = ((data.steering - 1000) / 1000) * 100;
+                document.getElementById('steeringProgress').style.width = Math.max(0, Math.min(100, steeringPercent)) + '%';
+            }
+            
+            // 실행 상태 업데이트
+            if (data.running !== undefined) {
+                const statusText = data.running ? '실행 중' : '중지';
+                const indicatorClass = data.running ? 'active' : 'inactive';
+                
+                document.getElementById('runningStatus').textContent = statusText;
+                document.getElementById('runningIndicator').className = 'running-indicator ' + indicatorClass;
+            }
+        }
+
+        function updateStats() {
+            // FPS 계산
+            const now = Date.now();
+            const timeDiff = (now - lastFrameTime) / 1000;
+            const currentFPS = timeDiff > 0 ? Math.round(1 / timeDiff) : 0;
+            lastFrameTime = now;
+            
+            document.getElementById('frameCount').textContent = frameCount;
+            document.getElementById('fps').textContent = currentFPS;
+            
+            // 연결 시간 계산
+            const uptime = Math.floor((now - startTime) / 1000);
+            const minutes = Math.floor(uptime / 60);
+            const seconds = uptime % 60;
+            document.getElementById('uptime').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            // 데이터 사용량
+            const dataInKB = Math.round(totalDataReceived / 1024);
+            document.getElementById('dataReceived').textContent = dataInKB + 'KB';
+        }
+
+        function sendCommand(command) {
+            // 실제 구현에서는 별도의 API 엔드포인트나 WebSocket 메시지로 명령을 전송할 수 있습니다.
+            console.log('명령 전송:', command);
+            
+            // 여기서는 시각적 피드백만 제공
+            const button = event.target;
+            const originalText = button.textContent;
+            
+            if (command === 'start') {
+                button.textContent = '시작 중...';
+                button.disabled = true;
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.disabled = false;
+                }, 2000);
+            } else if (command === 'stop') {
+                button.textContent = '정지 중...';
+                button.disabled = true;
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.disabled = false;
+                }, 2000);
+            }
+        }
+
+        // 페이지 로드 시 WebSocket 연결
+        window.addEventListener('load', function() {
+            connectWebSocket();
+        });
+
+        // 페이지 언로드 시 WebSocket 연결 해제
+        window.addEventListener('beforeunload', function() {
+            if (ws) {
+                ws.close();
+            }
+        });
+    </script>
+</body>
+</html>
