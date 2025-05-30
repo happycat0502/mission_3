@@ -1,4 +1,5 @@
 #include <TaskScheduler.h>
+#include "PinChangeInterrupt.h"
 
 #define PWM_PINS_START 6  // 첫 번째 출력 핀 (6,7번 핀 사용)
 #define RC_CH2_PIN 2      // RC 수신기 채널 2 (전후진 제어) - 수동 모드용

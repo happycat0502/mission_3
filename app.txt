@@ -33,13 +33,13 @@ class LineFollower:
         
         # 제어 파라미터
         self.image_center = 1920 // 2
-        self.steering_sensitivity = 1
-        self.base_speed = 1561
+        self.steering_sensitivity = 0.9
+        self.base_speed = 1565
         self.max_steering = 2000
         self.backword_speed = 1430
         
         # 라인 검출 파라미터
-        self.roi_height = 500
+        self.roi_height = 600
         self.roi_offset = 0
         
         # 제어 상태
@@ -205,7 +205,7 @@ class LineFollower:
         roi = gray[roi_y_start:roi_y_end, :]
         
         blurred = cv2.GaussianBlur(roi, (5, 5), 0)
-        _, binary = cv2.threshold(blurred, 160, 255, cv2.THRESH_BINARY_INV)
+        _, binary = cv2.threshold(blurred, 180, 255, cv2.THRESH_BINARY_INV)
         
         kernel = np.ones((3, 3), np.uint8)
         binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
@@ -216,17 +216,14 @@ class LineFollower:
         line_center = None
         if contours:
             largest_contour = max(contours, key=cv2.contourArea)
-            if cv2.contourArea(largest_contour) > 6400:
+            if cv2.contourArea(largest_contour) > 800:
                 M = cv2.moments(largest_contour)
                 if M['m00'] != 0:
                     cx = int(M['m10'] / M['m00'])
                     line_center = cx
             else:
                 line_center = None
-                print("라인이 너무 작아 검출 실패")
-        else :
-            line_center = None
-            print("라인 검출 실패")
+        
         return binary, line_center, roi_y_start
     
     def calculate_steering(self, line_center):
