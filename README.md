@@ -1,170 +1,176 @@
-# Line-Following Robot with Raspberry Pi and Arduino
+# 라즈베리 파이와 아두이노를 이용한 라인 팔로잉 로봇
 
-This project implements a line-following robot that uses a Raspberry Pi for computer vision-based line detection and an Arduino for precise motor control. The Raspberry Pi processes images from a camera to identify the line and sends control commands to the Arduino, which then drives the robot's motors.
+이 프로젝트는 컴퓨터 비전 기반 라인 감지를 위해 라즈베리 파이를 사용하고 정밀한 모터 제어를 위해 아두이노를 사용하는 라인 팔로잉 로봇을 구현합니다. 라즈베리 파이는 카메라의 이미지를 처리하여 라인을 식별하고 아두이노에 제어 명령을 보내 로봇의 모터를 구동합니다.
 
-The system supports both autonomous line following and manual remote control. A web interface provides a camera feed and status information.
+이 시스템은 자율 라인 팔로잉과 수동 원격 제어를 모두 지원합니다. 웹 인터페이스는 카메라 피드와 상태 정보를 제공합니다.
 
-## Arduino Firmware (C++)
+## 아두이노 펌웨어 (C++)
 
-The Arduino component, located in `src/main.cpp`, is responsible for the low-level control of the robot. It runs on an Arduino Uno and performs the following key functions:
+`src/main.cpp`에 위치한 아두이노 구성 요소는 로봇의 저수준 제어를 담당합니다. 아두이노 우노에서 실행되며 다음과 같은 주요 기능을 수행합니다.
 
-*   **Motor Control:** Generates PWM signals to control the speed and direction of the robot's motors based on commands received.
-*   **Dual Mode Operation:**
-    *   **Autonomous Mode:** Receives speed and steering commands from the Raspberry Pi via serial communication (e.g., "1550,1600" for speed and steering PWM values).
-    *   **Manual Mode:** Reads PWM signals from an RC (Radio Control) receiver connected to its input pins (specifically CH2 for throttle and CH4 for steering) to allow for manual remote operation. A physical switch connected to a designated pin (MODE_PIN) is used to toggle between autonomous and manual modes.
-*   **Task Management:** Utilizes the `TaskScheduler` library to manage periodic tasks like updating motor outputs and printing status information.
-*   **RC Input Handling:** Employs the `PinChangeInterrupt` library to efficiently capture PWM signals from the RC receiver.
+*   **모터 제어:** 수신된 명령에 따라 로봇 모터의 속도와 방향을 제어하기 위한 PWM 신호를 생성합니다.
+*   **듀얼 모드 작동:**
+    *   **자율 모드:** 직렬 통신을 통해 라즈베리 파이로부터 속도 및 조향 명령을 수신합니다 (예: 속도 및 조향 PWM 값으로 "1550,1600").
+    *   **수동 모드:** 입력 핀(특히 스로틀용 CH2 및 조향용 CH4)에 연결된 RC(무선 조종) 수신기의 PWM 신호를 읽어 수동 원격 조작을 허용합니다. 지정된 핀(MODE_PIN)에 연결된 물리적 스위치를 사용하여 자율 모드와 수동 모드 간을 전환합니다.
+*   **작업 관리:** `TaskScheduler` 라이브러리를 활용하여 모터 출력 업데이트 및 상태 정보 인쇄와 같은 주기적인 작업을 관리합니다.
+*   **RC 입력 처리:** `PinChangeInterrupt` 라이브러리를 사용하여 RC 수신기에서 PWM 신호를 효율적으로 캡처합니다.
 
-The firmware is built and uploaded using PlatformIO, with dependencies specified in `platformio.ini`.
+펌웨어는 PlatformIO를 사용하여 빌드 및 업로드되며, 종속성은 `platformio.ini`에 지정되어 있습니다.
 
-## Raspberry Pi Controller (Python)
+## 라즈베리 파이 컨트롤러 (Python)
 
-The Python application (`app.py`) runs on a Raspberry Pi and serves as the brain of the robot. Its main responsibilities include:
+Python 애플리케이션 (`app.py`)은 라즈베리 파이에서 실행되며 로봇의 두뇌 역할을 합니다. 주요 책임은 다음과 같습니다.
 
-*   **Computer Vision:** Captures video frames from a Picamera2 module, processes them using OpenCV (`cv2`) to detect the line to be followed. This involves:
-    *   Converting images to grayscale.
-    *   Applying Gaussian blur and binary thresholding to isolate the line.
-    *   Using contour detection to find the line and calculate its center.
-*   **Control Logic:** Calculates steering adjustments based on the detected line's position relative to the image center. It determines the appropriate speed and steering PWM values.
-*   **Serial Communication:** Sends the calculated speed and steering PWM commands to the Arduino via a USB serial connection. It includes logic for automatically finding and reconnecting to the Arduino if the connection is lost.
-*   **Web Interface:** Hosts a Flask web application that provides:
-    *   A live video stream from the camera, overlaid with debugging information (e.g., detected line, ROI).
-    *   Status information such as current speed, steering values, operational mode, and serial connection status.
-*   **User Interaction:** Allows starting and stopping the autonomous driving mode via keyboard input in the terminal.
+*   **컴퓨터 비전:** Picamera2 모듈에서 비디오 프레임을 캡처하고 OpenCV (`cv2`)를 사용하여 처리하여 따라갈 라인을 감지합니다. 여기에는 다음이 포함됩니다.
+    *   이미지를 그레이스케일로 변환합니다.
+    *   가우시안 블러 및 이진 임계값을 적용하여 라인을 분리합니다.
+    *   윤곽선 감지를 사용하여 라인을 찾고 중심을 계산합니다.
+*   **제어 로직:** 이미지 중심에 대한 감지된 라인의 위치를 기반으로 조향 조정을 계산합니다. 적절한 속도 및 조향 PWM 값을 결정합니다.
+*   **직렬 통신:** 계산된 속도 및 조향 PWM 명령을 USB 직렬 연결을 통해 아두이노로 보냅니다. 연결이 끊어진 경우 아두이노를 자동으로 찾아 다시 연결하는 로직을 포함합니다.
+*   **웹 인터페이스:** 다음을 제공하는 Flask 웹 애플리케이션을 호스팅합니다.
+    *   디버깅 정보(예: 감지된 라인, ROI)가 오버레이된 카메라의 라이브 비디오 스트림.
+    *   현재 속도, 조향 값, 작동 모드 및 직렬 연결 상태와 같은 상태 정보.
+*   **사용자 상호 작용:** 터미널에서 키보드 입력을 통해 자율 주행 모드를 시작하고 중지할 수 있습니다.
 
-Key Python libraries used include:
-*   `opencv-python` (cv2) for image processing.
-*   `Flask` and `Flask-Sock` for the web interface and WebSocket communication.
-*   `pyserial` for serial communication with the Arduino.
-*   `picamera2` for interfacing with the Raspberry Pi camera module.
-*   `numpy` for numerical operations, often used with OpenCV.
+사용되는 주요 Python 라이브러리는 다음과 같습니다.
+*   이미지 처리를 위한 `opencv-python` (cv2).
+*   웹 인터페이스 및 WebSocket 통신을 위한 `Flask` 및 `Flask-Sock`.
+*   아두이노와의 직렬 통신을 위한 `pyserial`.
+*   라즈베리 파이 카메라 모듈과의 인터페이스를 위한 `picamera2`.
+*   OpenCV와 함께 자주 사용되는 수치 연산을 위한 `numpy`.
 
-## Hardware Requirements
+## 하드웨어 요구 사항
 
-To build and operate this line-following robot, you will need the following hardware components:
+이 라인 팔로잉 로봇을 만들고 작동하려면 다음 하드웨어 구성 요소가 필요합니다.
 
-*   **Raspberry Pi:** Any model with CSI camera interface and USB ports (e.g., Raspberry Pi 3B+, Raspberry Pi 4).
-*   **Raspberry Pi Camera Module:** A compatible Picamera2 camera (e.g., Camera Module V1, V2, or HQ Camera).
-*   **Arduino Uno:** Or a compatible microcontroller board (e.g., Arduino Nano).
-*   **Robot Chassis:** A physical base for the robot, including:
-    *   Motors (typically two DC motors for differential drive).
-    *   Wheels.
-    *   Caster wheel (optional, for stability).
-*   **Motor Driver:** A module capable of driving the robot's motors, compatible with Arduino PWM signals (e.g., L298N, DRV8833).
-*   **RC Receiver and Transmitter (Optional):** For manual control. The receiver should output PWM signals (at least 2 channels for throttle and steering).
-*   **Mode Switch (Optional):** A physical switch to toggle between autonomous and manual modes, connected to the Arduino.
-*   **Power Supply:**
-    *   A power source for the Raspberry Pi (e.g., 5V USB power adapter).
-    *   A separate power source for the motors and Arduino, appropriate for the chosen motors (e.g., LiPo battery, AA battery pack).
-*   **USB Cable:** To connect the Raspberry Pi to the Arduino (for serial communication and programming the Arduino initially).
-*   **Jumper Wires and Breadboard (Optional):** For making connections between components.
-*   **SD Card:** For the Raspberry Pi's operating system.
+*   **라즈베리 파이:** CSI 카메라 인터페이스와 USB 포트가 있는 모든 모델 (예: 라즈베리 파이 3B+, 라즈베리 파이 4).
+*   **라즈베리 파이 카메라 모듈:** 호환되는 Picamera2 카메라 (예: 카메라 모듈 V1, V2 또는 HQ 카메라).
+*   **아두이노 우노:** 또는 호환되는 마이크로컨트롤러 보드 (예: 아두이노 나노).
+*   **로봇 섀시:** 다음을 포함하는 로봇의 물리적 기반:
+    *   모터 (일반적으로 차동 구동을 위한 DC 모터 2개).
+    *   바퀴.
+    *   캐스터 휠 (선택 사항, 안정성용).
+*   **모터 드라이버:** 아두이노 PWM 신호와 호환되는 로봇 모터를 구동할 수 있는 모듈 (예: L298N, DRV8833).
+*   **RC 수신기 및 송신기 (선택 사항):** 수동 제어용. 수신기는 PWM 신호를 출력해야 합니다 (스로틀 및 조향용 최소 2채널).
+*   **모드 스위치 (선택 사항):** 아두이노에 연결된 자율 모드와 수동 모드 간 전환용 물리적 스위치.
+*   **전원 공급 장치:**
+    *   라즈베리 파이용 전원 (예: 5V USB 전원 어댑터).
+    *   선택한 모터에 적합한 모터 및 아두이노용 별도 전원 (예: LiPo 배터리, AA 배터리 팩).
+*   **USB 케이블:** 라즈베리 파이를 아두이노에 연결하기 위한 케이블 (직렬 통신 및 초기 아두이노 프로그래밍용).
+*   **점퍼 와이어 및 브레드보드 (선택 사항):** 구성 요소 간 연결용.
+*   **SD 카드:** 라즈베리 파이 운영 체제용.
 
-## Software Setup and Installation
+## 소프트웨어 설정 및 설치
 
-### 1. Arduino (Firmware)
+### 1. 아두이노 (펌웨어)
 
-The Arduino firmware is located in the `src/main.cpp` file and is managed using PlatformIO.
+아두이노 펌웨어는 `src/main.cpp` 파일에 있으며 PlatformIO를 사용하여 관리됩니다.
 
-*   **Install PlatformIO IDE:** The recommended way is to use VS Code with the PlatformIO IDE extension. Follow the instructions on the [PlatformIO website](https://platformio.org/install).
-*   **Clone the Repository:**
+*   **PlatformIO IDE 설치:** 권장되는 방법은 PlatformIO IDE 확장 기능이 있는 VS Code를 사용하는 것입니다. [PlatformIO 웹사이트](https://platformio.org/install)의 지침을 따르십시오.
+*   **저장소 복제:**
     ```bash
     git clone <repository_url>
     cd <repository_directory>
     ```
-*   **Open Project in PlatformIO:** Open the cloned repository folder in VS Code (or your PlatformIO environment). PlatformIO should automatically recognize it as a PlatformIO project.
-*   **Build and Upload:**
-    *   Connect your Arduino Uno (or compatible board) to your computer via USB.
-    *   PlatformIO will typically auto-detect the board and port. If not, you might need to configure it in the `platformio.ini` file or via the PlatformIO interface.
-    *   Build the project and upload the firmware to the Arduino using the PlatformIO controls (usually a "Upload" button or command).
+*   **PlatformIO에서 프로젝트 열기:** 복제된 저장소 폴더를 VS Code (또는 PlatformIO 환경)에서 엽니다. PlatformIO는 자동으로 PlatformIO 프로젝트로 인식해야 합니다.
+*   **빌드 및 업로드:**
+    *   아두이노 우노 (또는 호환 보드)를 USB를 통해 컴퓨터에 연결합니다.
+    *   PlatformIO는 일반적으로 보드와 포트를 자동으로 감지합니다. 그렇지 않은 경우 `platformio.ini` 파일이나 PlatformIO 인터페이스를 통해 구성해야 할 수 있습니다.
+    *   PlatformIO 컨트롤 (일반적으로 "업로드" 버튼 또는 명령)을 사용하여 프로젝트를 빌드하고 펌웨어를 아두이노에 업로드합니다.
 
-### 2. Raspberry Pi (Controller Software)
+### 2. 라즈베리 파이 (컨트롤러 소프트웨어)
 
-The controller software runs on a Raspberry Pi with a compatible Linux distribution (e.g., Raspberry Pi OS).
+컨트롤러 소프트웨어는 호환되는 Linux 배포판 (예: 라즈베리 파이 OS)이 설치된 라즈베리 파이에서 실행됩니다.
 
-*   **Enable Camera Interface:**
-    *   Run `sudo raspi-config`.
-    *   Navigate to `Interface Options` -> `Camera`.
-    *   Enable the camera and reboot if prompted.
-*   **Install Python 3:** Ensure Python 3 is installed. It usually comes pre-installed on Raspberry Pi OS.
-*   **Clone the Repository (if not already done):**
+*   **카메라 인터페이스 활성화:**
+    *   `sudo raspi-config`를 실행합니다.
+    *   `Interface Options` -> `Camera`로 이동합니다.
+    *   카메라를 활성화하고 메시지가 표시되면 재부팅합니다.
+*   **Python 3 설치:** Python 3이 설치되어 있는지 확인합니다. 일반적으로 라즈베리 파이 OS에 사전 설치되어 제공됩니다.
+*   **저장소 복제 (아직 수행하지 않은 경우):**
     ```bash
     git clone <repository_url>
     cd <repository_directory>
     ```
-*   **Install Python Dependencies:**
-    Open a terminal on your Raspberry Pi and install the necessary Python libraries. It's recommended to use a virtual environment:
+*   **Python 종속성 설치:**
+    라즈베리 파이에서 터미널을 열고 필요한 Python 라이브러리를 설치합니다. 가상 환경을 사용하는 것이 좋습니다.
     ```bash
     python3 -m venv .venv
     source .venv/bin/activate
     pip install opencv-python flask flask-sock pyserial picamera2 numpy
     ```
-    *(Note: Installing OpenCV might take some time and might require additional system dependencies. Refer to OpenCV or Picamera2 documentation for detailed installation instructions if you encounter issues.)*
+    *(참고: OpenCV를 설치하는 데 시간이 걸릴 수 있으며 추가 시스템 종속성이 필요할 수 있습니다. 문제가 발생하면 자세한 설치 지침은 OpenCV 또는 Picamera2 설명서를 참조하십시오.)*
 
-## How to Run
+## 실행 방법
 
-After completing the hardware assembly and software installation:
+하드웨어 조립 및 소프트웨어 설치를 완료한 후:
 
-1.  **Connect Devices:**
-    *   Ensure the Arduino is connected to the Raspberry Pi via a USB cable. This connection is used for serial communication.
-    *   If using manual mode, ensure your RC receiver is connected to the Arduino and your RC transmitter is powered on.
-    *   Ensure the mode switch (if used) is connected to the Arduino.
-2.  **Power On:**
-    *   Power on the Raspberry Pi.
-    *   Power on the Arduino and the robot's motors.
-3.  **Run the Python Controller:**
-    *   Open a terminal on the Raspberry Pi.
-    *   Navigate to the project directory where `app.py` is located.
-    *   If you used a virtual environment for Python dependencies, activate it:
+1.  **장치 연결:**
+    *   아두이노가 USB 케이블을 통해 라즈베리 파이에 연결되어 있는지 확인합니다. 이 연결은 직렬 통신에 사용됩니다.
+    *   수동 모드를 사용하는 경우 RC 수신기가 아두이노에 연결되어 있고 RC 송신기가 켜져 있는지 확인합니다.
+    *   모드 스위치 (사용하는 경우)가 아두이노에 연결되어 있는지 확인합니다.
+2.  **전원 켜기:**
+    *   라즈베리 파이의 전원을 켭니다.
+    *   아두이노와 로봇 모터의 전원을 켭니다.
+3.  **Python 컨트롤러 실행:**
+    *   라즈베리 파이에서 터미널을 엽니다.
+    *   `app.py`가 있는 프로젝트 디렉터리로 이동합니다.
+    *   Python 종속성에 가상 환경을 사용한 경우 활성화합니다.
         ```bash
         source .venv/bin/activate
         ```
-    *   Run the Python script:
+    *   Python 스크립트를 실행합니다.
         ```bash
         python3 app.py
         ```
-4.  **Access the Web Interface:**
-    *   Open a web browser on a device connected to the same network as the Raspberry Pi.
-    *   Navigate to `http://<raspberry_pi_ip>:5000`, replacing `<raspberry_pi_ip>` with the actual IP address of your Raspberry Pi. You should see the camera feed and status information.
-5.  **Operating the Robot:**
-    *   **Mode Selection:**
-        *   The Arduino firmware (`src/main.cpp`) uses a `MODE_PIN` (pin 4 by default, configured with an internal pull-up).
-        *   **Autonomous Mode:** Set the `MODE_PIN` to HIGH. The robot will be controlled by the Raspberry Pi.
-        *   **Manual Mode:** Set the `MODE_PIN` to LOW. The robot will be controlled by the RC transmitter.
-        *   The initial mode and behavior on serial timeout are defined in the Arduino sketch.
-    *   **Starting/Stopping Autonomous Drive (via Terminal):**
-        *   The `app.py` script listens for keyboard commands in the terminal where it's running:
-            *   Press `s` to start autonomous line following.
-            *   Press `q` to stop autonomous driving and exit the Python script.
-            *   Press `r` to attempt a serial reconnection to the Arduino.
-    *   **Monitoring:** Observe the robot's behavior and the web interface for feedback. The terminal running `app.py` will also print status messages.
+4.  **웹 인터페이스 액세스:**
+    *   라즈베리 파이와 동일한 네트워크에 연결된 장치에서 웹 브라우저를 엽니다.
+    *   `<raspberry_pi_ip>`를 라즈베리 파이의 실제 IP 주소로 바꾸어 `http://<raspberry_pi_ip>:5000`으로 이동합니다. 카메라 피드와 상태 정보가 표시되어야 합니다.
+5.  **로봇 작동:**
+    *   **모드 선택:**
+        *   아두이노 펌웨어 (`src/main.cpp`)는 `MODE_PIN` (기본적으로 핀 4, 내부 풀업으로 구성됨)을 사용합니다.
+        *   **자율 모드:** `MODE_PIN`을 HIGH로 설정합니다. 로봇은 라즈베리 파이에 의해 제어됩니다.
+        *   **수동 모드:** `MODE_PIN`을 LOW로 설정합니다. 로봇은 RC 송신기에 의해 제어됩니다.
+        *   초기 모드 및 직렬 시간 초과 시 동작은 아두이노 스케치에 정의되어 있습니다.
+    *   **자율 주행 시작/중지 (터미널 통해):**
+        *   `app.py` 스크립트는 실행 중인 터미널에서 키보드 명령을 수신 대기합니다.
+            *   자율 라인 팔로잉을 시작하려면 `s`를 누릅니다.
+            *   자율 주행을 중지하고 Python 스크립트를 종료하려면 `q`를 누릅니다.
+            *   아두이노에 대한 직렬 재연결을 시도하려면 `r`을 누릅니다.
+    *   **모니터링:** 로봇의 동작과 웹 인터페이스에서 피드백을 관찰합니다. `app.py`를 실행하는 터미널에도 상태 메시지가 인쇄됩니다.
 
-**Important Notes:**
+**중요 참고 사항:**
 
-*   **Safety First:** Always operate the robot in a safe environment, especially during initial testing. Be prepared to stop it quickly if it behaves unexpectedly.
-*   **Calibration:** You might need to adjust parameters in `app.py` (e.g., `steering_sensitivity`, `base_speed`, ROI for line detection) and potentially in `src/main.cpp` (e.g., PWM ranges) to suit your specific robot hardware and track conditions. The comments in Korean within the source code might provide additional context for these parameters.
-*   **Serial Port:** `app.py` attempts to auto-detect the Arduino's serial port. If it fails, you might need to specify it manually in the script or ensure the Arduino is properly recognized by the Raspberry Pi (`dmesg` command can be helpful for troubleshooting).
+*   **안전 제일:** 특히 초기 테스트 중에는 항상 안전한 환경에서 로봇을 작동하십시오. 예기치 않게 작동하는 경우 신속하게 중지할 준비를 하십시오.
+*   **보정:** 특정 로봇 하드웨어 및 트랙 조건에 맞게 `app.py` (예: `steering_sensitivity`, `base_speed`, 라인 감지용 ROI) 및 잠재적으로 `src/main.cpp` (예: PWM 범위)의 매개변수를 조정해야 할 수 있습니다. 소스 코드 내의 한국어 주석은 이러한 매개변수에 대한 추가 컨텍스트를 제공할 수 있습니다.
+*   **직렬 포트:** `app.py`는 아두이노의 직렬 포트를 자동으로 감지하려고 시도합니다. 실패하면 스크립트에서 수동으로 지정하거나 라즈베리 파이에서 아두이노가 올바르게 인식되었는지 확인해야 할 수 있습니다 (`dmesg` 명령이 문제 해결에 도움이 될 수 있음).
 
-## Project Structure
+## 프로젝트 구조
 
-Here's an overview of the key files and directories in this project:
+이 프로젝트의 주요 파일 및 디렉터리 개요는 다음과 같습니다.
 
-*   **`README.md`**: This file, providing an overview and instructions for the project.
-*   **`platformio.ini`**: Configuration file for PlatformIO, specifying the Arduino board, framework, and library dependencies for the firmware.
-*   **`src/main.cpp`**: The main C++ source code for the Arduino firmware. It handles motor control, RC input, serial communication, and mode switching.
-*   **`app.py`**: The main Python script for the Raspberry Pi. It performs image processing for line detection, sends control commands to the Arduino, and hosts the Flask web interface.
-*   **`templates/`**: This directory contains HTML templates used by the Flask web application.
-    *   **`index.html`**: The main page for the web interface, displaying the camera feed and robot status. (Note: The content of `index.html` was not fully analyzed but is assumed to serve this purpose).
-*   **`lib/`**: This directory is typically used by PlatformIO to store project-specific libraries. It contains `README` files, suggesting it might hold or have held custom library code.
-*   **`include/`**: This directory is typically used by PlatformIO for header files. It contains a `README`, suggesting it might hold or have held custom header files.
-*   **`.gitignore`**: Specifies intentionally untracked files that Git should ignore (e.g., build artifacts, virtual environment directories like `.venv/`).
-*   **`main.cpp` (root directory)**: Appears to be an older or alternative version of the Arduino firmware. The primary firmware is in `src/main.cpp`.
+*   **`README.md`**: 이 파일은 프로젝트에 대한 개요와 지침을 제공합니다.
+*   **`platformio.ini`**: PlatformIO용 구성 파일로, 펌웨어용 아두이노 보드, 프레임워크 및 라이브러리 종속성을 지정합니다.
+*   **`src/main.cpp`**: 아두이노 펌웨어용 기본 C++ 소스 코드입니다. 모터 제어, RC 입력, 직렬 통신 및 모드 전환을 처리합니다.
+*   **`app.py`**: 라즈베리 파이용 기본 Python 스크립트입니다. 라인 감지를 위한 이미지 처리를 수행하고, 아두이노에 제어 명령을 보내고, Flask 웹 인터페이스를 호스팅합니다.
+*   **`templates/`**: 이 디렉터리에는 Flask 웹 애플리케이션에서 사용하는 HTML 템플릿이 포함되어 있습니다.
+    *   **`index.html`**: 웹 인터페이스용 기본 페이지로, 카메라 피드와 로봇 상태를 표시합니다. (참고: `index.html`의 내용은 완전히 분석되지 않았지만 이 용도로 사용되는 것으로 가정합니다.)
+*   **`lib/`**: 이 디렉터리는 일반적으로 PlatformIO에서 프로젝트별 라이브러리를 저장하는 데 사용됩니다. `README` 파일이 포함되어 있어 사용자 지정 라이브러리 코드를 보유하거나 보유했을 수 있음을 시사합니다.
+*   **`include/`**: 이 디렉터리는 일반적으로 PlatformIO에서 헤더 파일에 사용됩니다. `README`가 포함되어 있어 사용자 지정 헤더 파일을 보유하거나 보유했을 수 있음을 시사합니다.
+*   **`.gitignore`**: Git이 무시해야 하는 의도적으로 추적되지 않는 파일을 지정합니다 (예: 빌드 아티팩트, `.venv/`와 같은 가상 환경 디렉터리).
+*   **`main.cpp` (루트 디렉터리)**: 아두이노 펌웨어의 이전 버전 또는 대체 버전인 것으로 보입니다. 기본 펌웨어는 `src/main.cpp`에 있습니다.
 
-## Contributing
+## 기여
 
-Contributions to this project are welcome! If you have improvements, bug fixes, or new features you'd like to suggest, please feel free to:
+이 프로젝트에 대한 기여를 환영합니다! 개선 사항, 버그 수정 또는 제안하고 싶은 새로운 기능이 있으면 언제든지 다음을 수행하십시오.
 
-1.  Fork the repository.
-2.  Create a new branch for your changes.
-3.  Make your changes and commit them with clear messages.
-4.  Submit a pull request for review.
+1.  저장소를 포크합니다.
+2.  변경 사항에 대한 새 분기를 만듭니다.
+3.  변경 사항을 적용하고 명확한 메시지와 함께 커밋합니다.
+4.  검토를 위해 풀 리퀘스트를 제출합니다.
+
+## 라이선스
+
+이 프로젝트는 현재 명시적인 라이선스 없이 제공됩니다.
+
+저자는 다른 사람이 코드를 사용, 수정 및 배포하는 방법을 명확히 하기 위해 오픈 소스 라이선스를 추가하는 것을 고려하는 것이 좋습니다. [MIT 라이선스](https://opensource.org/licenses/MIT)는 이러한 프로젝트에 자주 사용되는 간단하고 허용적인 옵션입니다.
