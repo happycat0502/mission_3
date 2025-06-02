@@ -1,88 +1,170 @@
-# 라인 팔로잉 RC 카 프로젝트
+# Line-Following Robot with Raspberry Pi and Arduino
 
-이 프로젝트는 라즈베리 파이 5와 아두이노를 활용하여 카메라 기반 차선 인식 자율주행 RC 카를 구현합니다. 카메라로 차선을 감지하고, 마이크로초 단위의 정밀한 PWM 신호를 생성하여 RC 카를 제어합니다.
+This project implements a line-following robot that uses a Raspberry Pi for computer vision-based line detection and an Arduino for precise motor control. The Raspberry Pi processes images from a camera to identify the line and sends control commands to the Arduino, which then drives the robot's motors.
 
-## 프로젝트 개요
+The system supports both autonomous line following and manual remote control. A web interface provides a camera feed and status information.
 
-- **비전 시스템**: 라즈베리 파이 5와 AI 카메라로 차선 인식
-- **제어 시스템**: 아두이노를 통한 정밀 PWM 신호 생성
-- **통신**: USB 시리얼 통신을 통한 라즈베리 파이와 아두이노 간 명령 전달
+## Arduino Firmware (C++)
 
-## 하드웨어 요구사항
+The Arduino component, located in `src/main.cpp`, is responsible for the low-level control of the robot. It runs on an Arduino Uno and performs the following key functions:
 
-- 라즈베리 파이 5
-- 라즈베리 파이 AI 카메라 (IMX500 또는 호환 모델)
-- 아두이노 보드 (Uno, Nano 등)
-- RC 카 섀시 (서보 모터 및 ESC 포함)
-- USB 케이블 (라즈베리 파이와 아두이노 연결용)
-- 배터리 및 전원 공급 장치
+*   **Motor Control:** Generates PWM signals to control the speed and direction of the robot's motors based on commands received.
+*   **Dual Mode Operation:**
+    *   **Autonomous Mode:** Receives speed and steering commands from the Raspberry Pi via serial communication (e.g., "1550,1600" for speed and steering PWM values).
+    *   **Manual Mode:** Reads PWM signals from an RC (Radio Control) receiver connected to its input pins (specifically CH2 for throttle and CH4 for steering) to allow for manual remote operation. A physical switch connected to a designated pin (MODE_PIN) is used to toggle between autonomous and manual modes.
+*   **Task Management:** Utilizes the `TaskScheduler` library to manage periodic tasks like updating motor outputs and printing status information.
+*   **RC Input Handling:** Employs the `PinChangeInterrupt` library to efficiently capture PWM signals from the RC receiver.
 
-## 소프트웨어 의존성
+The firmware is built and uploaded using PlatformIO, with dependencies specified in `platformio.ini`.
 
-### 라즈베리 파이
-- Python 3.7+
-- OpenCV (`pip install opencv-python`)
-- picamera2 (`apt install python3-picamera2`)
-- pyserial (`pip install pyserial`)
-- NumPy (`pip install numpy`)
+## Raspberry Pi Controller (Python)
 
-### 아두이노
-- TaskScheduler 라이브러리 (Arduino Library Manager에서 설치)
+The Python application (`app.py`) runs on a Raspberry Pi and serves as the brain of the robot. Its main responsibilities include:
 
-## 설치 방법
+*   **Computer Vision:** Captures video frames from a Picamera2 module, processes them using OpenCV (`cv2`) to detect the line to be followed. This involves:
+    *   Converting images to grayscale.
+    *   Applying Gaussian blur and binary thresholding to isolate the line.
+    *   Using contour detection to find the line and calculate its center.
+*   **Control Logic:** Calculates steering adjustments based on the detected line's position relative to the image center. It determines the appropriate speed and steering PWM values.
+*   **Serial Communication:** Sends the calculated speed and steering PWM commands to the Arduino via a USB serial connection. It includes logic for automatically finding and reconnecting to the Arduino if the connection is lost.
+*   **Web Interface:** Hosts a Flask web application that provides:
+    *   A live video stream from the camera, overlaid with debugging information (e.g., detected line, ROI).
+    *   Status information such as current speed, steering values, operational mode, and serial connection status.
+*   **User Interaction:** Allows starting and stopping the autonomous driving mode via keyboard input in the terminal.
 
-### 라즈베리 파이 설정
+Key Python libraries used include:
+*   `opencv-python` (cv2) for image processing.
+*   `Flask` and `Flask-Sock` for the web interface and WebSocket communication.
+*   `pyserial` for serial communication with the Arduino.
+*   `picamera2` for interfacing with the Raspberry Pi camera module.
+*   `numpy` for numerical operations, often used with OpenCV.
 
-1. 라즈베리 파이 OS 설치 및 업데이트
-   ```bash
-   sudo apt update
-   sudo apt upgrade
-   ```
+## Hardware Requirements
 
-2. 필요한 패키지 설치
-   ```bash
-   sudo apt install python3-picamera2 python3-opencv python3-pip
-   pip install pyserial numpy
-   ```
+To build and operate this line-following robot, you will need the following hardware components:
 
-3. 카메라 활성화
-   ```bash
-   sudo raspi-config
-   # 인터페이스 옵션 > 카메라 > 활성화
-   ```
+*   **Raspberry Pi:** Any model with CSI camera interface and USB ports (e.g., Raspberry Pi 3B+, Raspberry Pi 4).
+*   **Raspberry Pi Camera Module:** A compatible Picamera2 camera (e.g., Camera Module V1, V2, or HQ Camera).
+*   **Arduino Uno:** Or a compatible microcontroller board (e.g., Arduino Nano).
+*   **Robot Chassis:** A physical base for the robot, including:
+    *   Motors (typically two DC motors for differential drive).
+    *   Wheels.
+    *   Caster wheel (optional, for stability).
+*   **Motor Driver:** A module capable of driving the robot's motors, compatible with Arduino PWM signals (e.g., L298N, DRV8833).
+*   **RC Receiver and Transmitter (Optional):** For manual control. The receiver should output PWM signals (at least 2 channels for throttle and steering).
+*   **Mode Switch (Optional):** A physical switch to toggle between autonomous and manual modes, connected to the Arduino.
+*   **Power Supply:**
+    *   A power source for the Raspberry Pi (e.g., 5V USB power adapter).
+    *   A separate power source for the motors and Arduino, appropriate for the chosen motors (e.g., LiPo battery, AA battery pack).
+*   **USB Cable:** To connect the Raspberry Pi to the Arduino (for serial communication and programming the Arduino initially).
+*   **Jumper Wires and Breadboard (Optional):** For making connections between components.
+*   **SD Card:** For the Raspberry Pi's operating system.
 
-### 아두이노 설정
+## Software Setup and Installation
 
-1. Arduino IDE 설치
-2. TaskScheduler 라이브러리 설치 (라이브러리 매니저 사용)
-3. 아두이노 코드 업로드
+### 1. Arduino (Firmware)
 
-## 코드 설명
+The Arduino firmware is located in the `src/main.cpp` file and is managed using PlatformIO.
 
-### 아두이노 코드 ()
-하드웨어 타이머를 사용하여 정밀한 PWM 신호를 생성합니다:
-- 타이머 인터럽트로 마이크로초 단위 펄스 폭 제어
-- 서보 모터와 ESC를 위한 50Hz 신호 생성
-- 시리얼 통신으로 명령 수신 (S{조향값}T{속도값} 형식)
+*   **Install PlatformIO IDE:** The recommended way is to use VS Code with the PlatformIO IDE extension. Follow the instructions on the [PlatformIO website](https://platformio.org/install).
+*   **Clone the Repository:**
+    ```bash
+    git clone <repository_url>
+    cd <repository_directory>
+    ```
+*   **Open Project in PlatformIO:** Open the cloned repository folder in VS Code (or your PlatformIO environment). PlatformIO should automatically recognize it as a PlatformIO project.
+*   **Build and Upload:**
+    *   Connect your Arduino Uno (or compatible board) to your computer via USB.
+    *   PlatformIO will typically auto-detect the board and port. If not, you might need to configure it in the `platformio.ini` file or via the PlatformIO interface.
+    *   Build the project and upload the firmware to the Arduino using the PlatformIO controls (usually a "Upload" button or command).
 
-### 라즈베리 파이 코드 (main.py)
-카메라로 차선을 감지하고 아두이노로 제어 명령을 전송합니다:
-- 카메라 프레임 캡처 및 처리
-- Canny 엣지 검출 및 허프 변환으로 라인 감지
-- 왼쪽/오른쪽 차선 구분하여 조향 방향 결정
-- 시리얼 통신으로 아두이노에 명령 전송
+### 2. Raspberry Pi (Controller Software)
 
-## 향후 개선 사항
+The controller software runs on a Raspberry Pi with a compatible Linux distribution (e.g., Raspberry Pi OS).
 
-1. **알고리즘 개선**: 
-   - PID 제어 구현으로 부드러운 조향
-   - 딥러닝 기반 차선 인식 (TensorFlow Lite)
+*   **Enable Camera Interface:**
+    *   Run `sudo raspi-config`.
+    *   Navigate to `Interface Options` -> `Camera`.
+    *   Enable the camera and reboot if prompted.
+*   **Install Python 3:** Ensure Python 3 is installed. It usually comes pre-installed on Raspberry Pi OS.
+*   **Clone the Repository (if not already done):**
+    ```bash
+    git clone <repository_url>
+    cd <repository_directory>
+    ```
+*   **Install Python Dependencies:**
+    Open a terminal on your Raspberry Pi and install the necessary Python libraries. It's recommended to use a virtual environment:
+    ```bash
+    python3 -m venv .venv
+    source .venv/bin/activate
+    pip install opencv-python flask flask-sock pyserial picamera2 numpy
+    ```
+    *(Note: Installing OpenCV might take some time and might require additional system dependencies. Refer to OpenCV or Picamera2 documentation for detailed installation instructions if you encounter issues.)*
 
-2. **하드웨어 업그레이드**:
-   - 더 빠른 카메라 프레임 레이트
-   - 더 정확한 위치 추적을 위한 IMU 추가
+## How to Run
 
-3. **기능 추가**:
-   - 장애물 감지 및 회피
-   - 교차로 인식 및 의사 결정
-   - 웹 인터페이스로 원격 모니터링
+After completing the hardware assembly and software installation:
+
+1.  **Connect Devices:**
+    *   Ensure the Arduino is connected to the Raspberry Pi via a USB cable. This connection is used for serial communication.
+    *   If using manual mode, ensure your RC receiver is connected to the Arduino and your RC transmitter is powered on.
+    *   Ensure the mode switch (if used) is connected to the Arduino.
+2.  **Power On:**
+    *   Power on the Raspberry Pi.
+    *   Power on the Arduino and the robot's motors.
+3.  **Run the Python Controller:**
+    *   Open a terminal on the Raspberry Pi.
+    *   Navigate to the project directory where `app.py` is located.
+    *   If you used a virtual environment for Python dependencies, activate it:
+        ```bash
+        source .venv/bin/activate
+        ```
+    *   Run the Python script:
+        ```bash
+        python3 app.py
+        ```
+4.  **Access the Web Interface:**
+    *   Open a web browser on a device connected to the same network as the Raspberry Pi.
+    *   Navigate to `http://<raspberry_pi_ip>:5000`, replacing `<raspberry_pi_ip>` with the actual IP address of your Raspberry Pi. You should see the camera feed and status information.
+5.  **Operating the Robot:**
+    *   **Mode Selection:**
+        *   The Arduino firmware (`src/main.cpp`) uses a `MODE_PIN` (pin 4 by default, configured with an internal pull-up).
+        *   **Autonomous Mode:** Set the `MODE_PIN` to HIGH. The robot will be controlled by the Raspberry Pi.
+        *   **Manual Mode:** Set the `MODE_PIN` to LOW. The robot will be controlled by the RC transmitter.
+        *   The initial mode and behavior on serial timeout are defined in the Arduino sketch.
+    *   **Starting/Stopping Autonomous Drive (via Terminal):**
+        *   The `app.py` script listens for keyboard commands in the terminal where it's running:
+            *   Press `s` to start autonomous line following.
+            *   Press `q` to stop autonomous driving and exit the Python script.
+            *   Press `r` to attempt a serial reconnection to the Arduino.
+    *   **Monitoring:** Observe the robot's behavior and the web interface for feedback. The terminal running `app.py` will also print status messages.
+
+**Important Notes:**
+
+*   **Safety First:** Always operate the robot in a safe environment, especially during initial testing. Be prepared to stop it quickly if it behaves unexpectedly.
+*   **Calibration:** You might need to adjust parameters in `app.py` (e.g., `steering_sensitivity`, `base_speed`, ROI for line detection) and potentially in `src/main.cpp` (e.g., PWM ranges) to suit your specific robot hardware and track conditions. The comments in Korean within the source code might provide additional context for these parameters.
+*   **Serial Port:** `app.py` attempts to auto-detect the Arduino's serial port. If it fails, you might need to specify it manually in the script or ensure the Arduino is properly recognized by the Raspberry Pi (`dmesg` command can be helpful for troubleshooting).
+
+## Project Structure
+
+Here's an overview of the key files and directories in this project:
+
+*   **`README.md`**: This file, providing an overview and instructions for the project.
+*   **`platformio.ini`**: Configuration file for PlatformIO, specifying the Arduino board, framework, and library dependencies for the firmware.
+*   **`src/main.cpp`**: The main C++ source code for the Arduino firmware. It handles motor control, RC input, serial communication, and mode switching.
+*   **`app.py`**: The main Python script for the Raspberry Pi. It performs image processing for line detection, sends control commands to the Arduino, and hosts the Flask web interface.
+*   **`templates/`**: This directory contains HTML templates used by the Flask web application.
+    *   **`index.html`**: The main page for the web interface, displaying the camera feed and robot status. (Note: The content of `index.html` was not fully analyzed but is assumed to serve this purpose).
+*   **`lib/`**: This directory is typically used by PlatformIO to store project-specific libraries. It contains `README` files, suggesting it might hold or have held custom library code.
+*   **`include/`**: This directory is typically used by PlatformIO for header files. It contains a `README`, suggesting it might hold or have held custom header files.
+*   **`.gitignore`**: Specifies intentionally untracked files that Git should ignore (e.g., build artifacts, virtual environment directories like `.venv/`).
+*   **`main.cpp` (root directory)**: Appears to be an older or alternative version of the Arduino firmware. The primary firmware is in `src/main.cpp`.
+
+## Contributing
+
+Contributions to this project are welcome! If you have improvements, bug fixes, or new features you'd like to suggest, please feel free to:
+
+1.  Fork the repository.
+2.  Create a new branch for your changes.
+3.  Make your changes and commit them with clear messages.
+4.  Submit a pull request for review.
