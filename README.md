@@ -121,7 +121,6 @@ void updateMode() {
 > RC 수신기의 CH5 PWM 값을 기준으로 `current_mode` 전역변수를 갱신합니다.  
 > 모드 스위치를 조작하면 자율 주행 ↔ 수동 주행이 전환됩니다.
 
----
 
 ### 2️⃣ `processSerialData()` — 시리얼 입력 처리 (Arduino, `main.cpp`)
 
@@ -144,7 +143,6 @@ void processSerialData() {
 > 시리얼 입력을 한 줄(`\n`) 단위로 읽어서 `parseSerialCommand()`로 넘깁니다.  
 > 자율 모드에서 라즈베리파이와의 통신을 처리하는 핵심 함수입니다.
 
----
 
 ### 3️⃣ `parseSerialCommand()` — PWM 값 파싱 및 적용
 
@@ -164,7 +162,6 @@ void parseSerialCommand(String data) {
 > "1570,1450" 같은 문자열을 분해하여 모터/서보에 PWM 값을 전송합니다.  
 > 잘못된 데이터는 무시되도록 간단한 예외처리도 포함되어 있습니다.
 
----
 
 ### 4️⃣ `detect_line()` — 라인 검출 (Python, `app.py`)
 
@@ -189,7 +186,6 @@ def detect_line(self, frame):
 > 영상 하단 관심영역에서 이진화 + 외곽선 검출로 라인을 추적합니다.  
 > 가장 큰 윤곽선의 중심을 계산해 자율 조향에 활용됩니다.
 
----
 
 ### 5️⃣ `calculate_steering()` — 중심 오차 기반 조향 보정
 
@@ -204,7 +200,6 @@ def calculate_steering(self, line_center, frame_width):
 > 화면 중앙에서 라인 중심이 얼마나 벗어났는지를 기반으로  
 > 조향 PWM을 계산합니다. 민감도 계수를 곱해 보정 폭을 조절합니다.
 
----
 
 ### 6️⃣ `send_control_signal()` — PWM 명령 전송 (Python → Arduino)
 
@@ -219,7 +214,6 @@ def send_control_signal(self, speed_pwm, steering_pwm):
 > 조향 및 속도 PWM 값을 아두이노로 전송하는 함수입니다.  
 > 실패 방지를 위해 연결 상태를 매번 점검합니다.
 
----
 
 ### 7️⃣ `autonomous_drive()` — 자율주행 주 루프
 
@@ -260,7 +254,7 @@ def autonomous_drive(self, frame):
 2. CH5 > 1600 → MODE_MANUAL 설정
 3. 사용자 PWM 값을 그대로 모터와 서보모터에 출력
 
----
+
 
 ### 📌 핵심 코드 (Arduino `main.cpp`)
 
@@ -281,7 +275,7 @@ void loop() {
 > - 조종기에서의 입력이 RC카에 실시간 반영됩니다.  
 > - 테스트 시 높은 응답성과 제어 편의성 확보에 용이합니다.
 
----
+
 
 ## 🤖 자율 주행 모드 (Autonomous Mode)
 
@@ -300,7 +294,7 @@ void loop() {
 5. speed, steering PWM 값을 시리얼로 Arduino에 전송
 6. Arduino는 해당 PWM을 모터에 적용
 
----
+
 
 ### 📌 핵심 코드 (Python `app.py`)
 
@@ -357,7 +351,7 @@ def send_control_signal(self, speed_pwm, steering_pwm):
 > - 라인 중심과 영상 중심 간의 오차를 기반으로 Steering 조향값 계산  
 > - 조향값과 속도값은 문자열 형태로 Arduino에 전달
 
----
+
 
 ### 📌 핵심 코드 (Arduino `main.cpp`)
 
@@ -391,7 +385,6 @@ void parseSerialCommand(String data) {
 > - 모터와 서보에 해당 PWM 출력 적용  
 > - 통신 지연/에러 발생 시 fail-safe 루틴이 동작해 정지 처리
 
----
 
 ## 📊 수동 vs 자율 비교 요약
 
@@ -470,7 +463,7 @@ roi = frame[frame.shape[0] - self.roi_height:, :]
 > 헬리콥터 모드는 일부 채널을 자동으로 믹싱하거나 제한함 → 수동 PWM 제어에는 부적합  
 > Acrobatic 모드는 각 채널을 **그대로 출력**하기 때문에 수동 주행에 필수
 
----
+
 
 ### ✅ 5. 배터리 전압 감소로 PWM 값 변화
 
@@ -505,7 +498,7 @@ roi = frame[frame.shape[0] - 100:, :]  # 하단 100픽셀을 ROI로 사용
 > → 가장 큰 외곽선 중심점(cx) → 화면 중심과 비교 → 조향 각 결정
 
 
-
+---
 
 ## 8. 설치 및 실행 방법
 
@@ -521,7 +514,7 @@ python3 app.py
 
 - 웹 브라우저 접속 주소: `http://<라즈베리파이_IP>:5000`
 
----
+
 
 ### ⚙️ Arduino
 
