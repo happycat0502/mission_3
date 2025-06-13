@@ -219,6 +219,71 @@ lib_deps =
 
 ## 🔄 동작 원리 및 제어 방법
 
+### 📊 전체 시스템 플로우차트
+
+```mermaid
+flowchart TD
+    Start([시스템 시작]) --> Init[Arduino 초기화]
+    Init --> Setup[핀 설정 및 인터럽트 설정]
+    Setup --> MainLoop{메인 루프}
+    
+    MainLoop --> ReadRC[RC 신호 읽기<br/>CH2, CH4, CH5]
+    ReadRC --> CheckMode{CH5 모드 스위치<br/>PWM 값 확인}
+    
+    CheckMode -->|PWM ≤ 1100| ManualMode[🎮 수동 모드]
+    CheckMode -->|PWM ≥ 1800| AutoMode[🤖 자율주행 모드]
+    CheckMode -->|1100 < PWM < 1800| Hysteresis[히스테리시스<br/>현재 모드 유지]
+    
+    ManualMode --> DirectPWM[RC PWM 직접 전달<br/>CH2→속도, CH4→조향]
+    DirectPWM --> MotorOutput[모터/서보 제어<br/>Pin 6, 7]
+    
+    AutoMode --> SerialCheck{시리얼 데이터<br/>수신 확인}
+    SerialCheck -->|수신됨| ParseSerial[시리얼 파싱<br/>SPEED,STEERING]
+    SerialCheck -->|타임아웃| SafetyStop[안전 정지<br/>1500, 1500]
+    
+    ParseSerial --> ValidateData{데이터 유효성<br/>1000-2000 범위}
+    ValidateData -->|유효| UpdatePWM[PWM 값 업데이트]
+    ValidateData -->|무효| IgnoreData[데이터 무시]
+    
+    UpdatePWM --> MotorOutput
+    SafetyStop --> MotorOutput
+    IgnoreData --> MotorOutput
+    
+    MotorOutput --> LEDControl[LED 상태 표시<br/>조향 방향 표시]
+    LEDControl --> StatusOutput[시리얼 상태 출력]
+    StatusOutput --> MainLoop
+    
+    Hysteresis --> CurrentMode{현재 모드}
+    CurrentMode -->|수동| ManualMode
+    CurrentMode -->|자율| AutoMode
+    
+    subgraph RaspberryPi [라즈베리파이 처리]
+        CameraInput[📷 카메라 영상 입력] --> ROIExtract[ROI 추출<br/>하단 500px]
+        ROIExtract --> ImageProcess[영상 처리<br/>Grayscale → Blur → Binary]
+        ImageProcess --> MorphOps[형태학적 연산<br/>Opening + Closing]
+        MorphOps --> ContourDetect[외곽선 검출]
+        ContourDetect --> LineCenter{라인 중심 계산}
+        
+        LineCenter -->|검출 성공| CalcSteering[조향각 계산<br/>비례 제어]
+        LineCenter -->|검출 실패| BackwardSignal[후진 신호<br/>1435]
+        
+        CalcSteering --> ForwardSignal[전진 신호<br/>1570]
+        ForwardSignal --> SerialSend[시리얼 전송<br/>SPEED,STEERING]
+        BackwardSignal --> SerialSend
+        
+        SerialSend --> CameraInput
+    end
+    
+    AutoMode -.->|자율주행 모드 시| RaspberryPi
+    RaspberryPi -.->|제어 신호 전송| SerialCheck
+    
+    style Start fill:#e1f5fe
+    style ManualMode fill:#fff3e0
+    style AutoMode fill:#e8f5e8
+    style MotorOutput fill:#fce4ec
+    style SafetyStop fill:#ffebee
+```
+
 ### 1. 모드 전환 시스템
 
 **PWM 기반 모드 결정**:
