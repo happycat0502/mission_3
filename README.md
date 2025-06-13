@@ -29,12 +29,13 @@
 
 ### • 사용 부품
 - Raspberry Pi 4 + PiCamera2
-- Arduino Uno
+- orange board
 - RadioLink R9DS 수신기
-- L298N Motor Driver
 - DC Motor 2개, Servo Motor 1개
 - 라인트랙 테이프
 - LED Indicator (좌/우) 2개
+  ![Uploading image.png…]()
+
 
 ### • 연결 구성도
 - CH2 (전후진) → Arduino Pin 2  
