@@ -1,3 +1,4 @@
+//라인 검출 방식을 수정하기 전의 코드입니다. 텍스트 파일로 전환하였습니다.
 #include <Arduino.h>
 #include <TaskScheduler.h>
 #include "PinChangeInterrupt.h"
