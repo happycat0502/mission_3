@@ -223,74 +223,41 @@ lib_deps =
 
 ```mermaid
 flowchart TD
-    %% Arduino 메인 시스템
-    Start([시스템 시작]) --> MainLoop{메인 루프}
-    MainLoop --> ReadRC[RC 신호 읽기]
-    ReadRC --> CheckMode{모드 스위치<br/>CH5 PWM}
+    Start([시스템 시작]) --> Loop[메인 루프]
+    Loop --> ReadPWM[RC 신호 읽기]
+    ReadPWM --> CheckMode{CH5 모드 스위치}
     
-    %% 모드 분기
-    CheckMode -->|≤ 1100| Manual[🎮 수동 모드]
-    CheckMode -->|≥ 1800| Auto[🤖 자율주행 모드]
-    CheckMode -->|중간값| Hysteresis[현재 모드 유지]
+    CheckMode -->|PWM ≤ 1100| Manual[수동 모드]
+    CheckMode -->|PWM ≥ 1800| Auto[자율주행 모드]
     
-    %% 수동 모드 처리
-    Manual --> DirectControl[RC 신호 직접 전달<br/>CH2→속도, CH4→조향]
-    DirectControl --> Output[모터 제어 출력]
+    Manual --> RCControl[RC PWM 직접 출력]
+    RCControl --> MotorOutput[모터/서보 제어]
     
-    %% 자율주행 모드 처리
-    Auto --> SerialCheck{시리얼 수신?}
-    SerialCheck -->|Yes| ParseData[데이터 파싱<br/>SPEED,STEERING]
-    SerialCheck -->|Timeout| SafeStop[안전 정지<br/>1500,1500]
+    Auto --> SerialRead{시리얼 데이터}
+    SerialRead -->|수신됨| ParseCmd[명령 파싱]
+    SerialRead -->|타임아웃| Stop[정지 신호]
     
-    ParseData --> Validate{유효한 데이터?}
-    Validate -->|Valid| Output
-    Validate -->|Invalid| SafeStop
-    SafeStop --> Output
+    ParseCmd --> MotorOutput
+    Stop --> MotorOutput
+    MotorOutput --> Loop
     
-    %% 출력 및 피드백
-    Output --> LEDStatus[LED 상태 표시]
-    LEDStatus --> MainLoop
-    
-    %% 히스테리시스 처리
-    Hysteresis --> CurrentMode{현재 모드}
-    CurrentMode -->|수동| Manual
-    CurrentMode -->|자율| Auto
-    
-    %% 라즈베리파이 영상 처리 시스템
-    subgraph RPi ["🔹 라즈베리파이 영상 처리"]
-        Camera[📷 카메라 입력] --> ROI[ROI 설정<br/>하단 500px]
-        ROI --> Process[영상 처리<br/>Gray→Blur→Binary]
-        Process --> Contour[외곽선 검출]
-        Contour --> LineDetect{라인 검출}
+    subgraph Vision [라즈베리파이 영상처리]
+        Camera[카메라 입력] --> ROI[ROI 추출]
+        ROI --> Binary[이진화 처리]
+        Binary --> Contour[외곽선 검출]
+        Contour --> LineCheck{라인 검출}
         
-        LineDetect -->|성공| Steering[조향각 계산<br/>비례 제어]
-        LineDetect -->|실패| Backward[후진 모드]
+        LineCheck -->|성공| CalcSteering[조향각 계산]
+        LineCheck -->|실패| Reverse[후진 신호]
         
-        Steering --> Forward[전진: 1570]
-        Backward --> BackSignal[후진: 1435]
-        Forward --> Send[시리얼 전송]
-        BackSignal --> Send
-        Send --> Camera
+        CalcSteering --> Forward[전진 신호]
+        Reverse --> SendSerial[시리얼 전송]
+        Forward --> SendSerial
+        SendSerial --> Camera
     end
     
-    %% 시스템 간 연결
-    Auto -.->|활성화| RPi
-    RPi -.->|제어신호| SerialCheck
-    
-    %% 스타일링
-    classDef startEnd fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
-    classDef process fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
-    classDef decision fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    classDef manual fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
-    classDef auto fill:#fce4ec,stroke:#c2185b,stroke-width:2px
-    classDef safety fill:#ffebee,stroke:#d32f2f,stroke-width:3px
-    
-    class Start,MainLoop startEnd
-    class Output,LEDStatus,DirectControl process
-    class CheckMode,SerialCheck,Validate,LineDetect,CurrentMode decision
-    class Manual,Hysteresis manual
-    class Auto,ParseData auto
-    class SafeStop safety
+    Auto -.-> Vision
+    Vision -.-> SerialRead
 ```
 
 ### 1. 모드 전환 시스템
