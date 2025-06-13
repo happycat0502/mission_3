@@ -11,7 +11,7 @@
 - **Mode: Acrobatic** 모드에서 사용 (수동 PWM 제어에 적합)
   ![image](https://github.com/user-attachments/assets/5d01620e-2241-4424-bab5-fdc202db363f)
 
-![Uploading image.png…]()
+
 
 
 ### • 핵심 기술 개요
