@@ -57,7 +57,7 @@
         ↓ (PWM)
    [R9DS Rx Receiver]
         ↓ (PWM)
-      [Arduino Uno]
+      [orange board]
         ↑ (Serial)
    [Raspberry Pi 4]
         ↑
