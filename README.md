@@ -245,23 +245,166 @@ def autonomous_drive(self, frame):
 
 ## 6. 작동 예시
 
-### 🎮 수동 모드
-- 조종기에서 PWM을 직접 제어
-- 응답 속도가 빠르며 테스트 및 디버깅에 유용
-- 모드 스위치(CH5) HIGH 상태에서 작동
+## 🚗 수동 주행 모드 (Manual Mode)
 
-### 🤖 자율 주행 모드
-- PiCamera 영상 기반으로 라인을 감지하여 조향 및 속도 결정
-- Raspberry Pi → Arduino 시리얼 전송으로 동작
-- 모드 스위치(CH5) LOW 상태에서 작동
-- 라인 미검출 시 자동 후진 수행
+### 🔧 제어 방식
+- RadioLink AT9 조종기에서 직접 RC카 제어
+- CH2 → 전후진 PWM (1000~2000)
+- CH4 → 좌우 조향 PWM
+- CH5 → 모드 전환용 (1600 이상이면 수동 모드 진입)
 
-### 🌐 Web UI
-- Flask 기반 실시간 스트리밍 + 상태 시각화 제공
-- 주요 기능:
-  - 실시간 PiCamera 영상
-  - Steering, Speed, Mode 값 표시
-  - 연결 상태 감지 및 재연결
+---
+
+### ⚙️ 동작 원리
+1. Arduino가 CH2/CH4/CH5 PWM 신호를 입력받음
+2. CH5 > 1600 → MODE_MANUAL 설정
+3. 사용자 PWM 값을 그대로 모터와 서보모터에 출력
+
+---
+
+### 📌 핵심 코드 (Arduino `main.cpp`)
+
+```cpp
+void loop() {
+  readPWM();           // CH2, CH4, CH5 PWM 신호 읽기
+  updateMode();        // CH5로 모드 전환 여부 확인
+
+  if (current_mode == MODE_MANUAL) {
+    analogWrite(MOTOR_PIN, throttle_pwm);     // DC 모터 제어
+    analogWrite(SERVO_PIN, steering_pwm);     // 서보모터 조향 제어
+  }
+}
+```
+
+> **설명:**  
+> - 수신기에서 들어오는 PWM 값을 그대로 모터 제어에 사용합니다.  
+> - 조종기에서의 입력이 RC카에 실시간 반영됩니다.  
+> - 테스트 시 높은 응답성과 제어 편의성 확보에 용이합니다.
+
+---
+
+## 🤖 자율 주행 모드 (Autonomous Mode)
+
+### 🔧 제어 방식
+- PiCamera 영상 기반 라인 추적
+- 중심 오차 → Steering 계산
+- Raspberry Pi → Arduino에 시리얼로 PWM 값 전송
+
+---
+
+### ⚙️ 동작 원리
+1. PiCamera로 실시간 영상 수신
+2. 관심영역(ROI) 설정 후 이진화 및 Contour 추출
+3. 라인의 중심 좌표를 추출
+4. 화면 중심과의 오차를 기반으로 steering 보정값 계산
+5. speed, steering PWM 값을 시리얼로 Arduino에 전송
+6. Arduino는 해당 PWM을 모터에 적용
+
+---
+
+### 📌 핵심 코드 (Python `app.py`)
+
+```python
+def detect_line(self, frame):
+    # 영상 하단 ROI 설정
+    roi = frame[frame.shape[0] - self.roi_height:, :]
+    gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    _, binary = cv2.threshold(blurred, self.thresh, 255, cv2.THRESH_BINARY_INV)
+    contours, _ = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    if contours:
+        largest = max(contours, key=cv2.contourArea)
+        M = cv2.moments(largest)
+        if M["m00"] != 0:
+            cx = int(M["m10"] / M["m00"])  # 중심 x좌표
+            return cx
+    return None
+```
+
+```python
+def calculate_steering(self, line_center, frame_width):
+    error = (frame_width // 2) - line_center
+    steering = self.neutral_steering + error * self.steering_sensitivity
+    return int(steering)
+```
+
+```python
+def autonomous_drive(self, frame):
+    # 자율주행 메인 루프
+    line_center = self.detect_line(frame)
+
+    if line_center is not None:
+        speed_pwm = self.base_speed
+        steering_pwm = self.calculate_steering(line_center, frame.shape[1])
+    else:
+        # 라인을 잃으면 후진 PWM을 사용
+        speed_pwm = self.backword_speed
+        steering_pwm = self.neutral_steering
+
+    self.send_control_signal(speed_pwm, steering_pwm)
+```
+
+```python
+def send_control_signal(self, speed_pwm, steering_pwm):
+    command = f"{speed_pwm},{steering_pwm}\\n"
+    if self.serial and self.serial.is_open:
+        self.serial.write(command.encode())
+```
+
+> **설명:**  
+> - 영상 하단만 분석하여 연산량을 줄이고 반응속도 향상  
+> - 라인 중심과 영상 중심 간의 오차를 기반으로 Steering 조향값 계산  
+> - 조향값과 속도값은 문자열 형태로 Arduino에 전달
+
+---
+
+### 📌 핵심 코드 (Arduino `main.cpp`)
+
+```cpp
+void processSerialData() {
+  static String serialData = "";
+  while (Serial.available()) {
+    char inChar = (char)Serial.read();
+    if (inChar == '\n') {
+      parseSerialCommand(serialData);
+      serialData = "";
+    } else {
+      serialData += inChar;
+    }
+  }
+}
+
+void parseSerialCommand(String data) {
+  int commaIndex = data.indexOf(',');
+  if (commaIndex > 0) {
+    int speed = data.substring(0, commaIndex).toInt();
+    int steering = data.substring(commaIndex + 1).toInt();
+    analogWrite(MOTOR_PIN, speed);
+    analogWrite(SERVO_PIN, steering);
+  }
+}
+```
+
+> **설명:**  
+> - Raspberry Pi에서 전송된 문자열 `"1570,1450"`을 speed/steering으로 분리  
+> - 모터와 서보에 해당 PWM 출력 적용  
+> - 통신 지연/에러 발생 시 fail-safe 루틴이 동작해 정지 처리
+
+---
+
+## 📊 수동 vs 자율 비교 요약
+
+| 항목            | 수동 주행 모드                        | 자율 주행 모드                           |
+|-----------------|----------------------------------------|------------------------------------------|
+| 입력            | 조종기 PWM (CH2, CH4)                 | 카메라 영상 (PiCamera2)                 |
+| 처리 장치       | Arduino 단독                           | Raspberry Pi에서 분석 후 Arduino 전송  |
+| 조향 방식       | CH4 PWM → 서보                         | 영상 중심 좌표 기반 Steering 계산       |
+| 속도 제어       | CH2 PWM → 모터                         | 고정 전진 속도 + 미검출 시 후진 적용    |
+| 전환 방법       | CH5 PWM > 1600                         | CH5 PWM < 1600                           |
+| 장점            | 직관적이고 빠른 반응 속도              | 사람이 개입하지 않아도 주행 가능       |
+
+
 
 ---
 
