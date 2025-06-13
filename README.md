@@ -222,38 +222,30 @@ lib_deps =
 ### 📊 전체 시스템 플로우차트
 
 ```mermaid
-flowchart TD
-    Start([시스템 시작]) --> Loop[메인 루프]
-    Loop --> ReadPWM[RC 신호 읽기]
-    ReadPWM --> CheckMode{CH5 모드 스위치}
+flowchart LR
+    Start([시스템 시작]) --> CheckMode{CH5 모드 스위치}
     
     CheckMode -->|PWM ≤ 1100| Manual[수동 모드]
     CheckMode -->|PWM ≥ 1800| Auto[자율주행 모드]
     
     Manual --> RCControl[RC PWM 직접 출력]
-    RCControl --> MotorOutput[모터/서보 제어]
-    
     Auto --> SerialRead{시리얼 데이터}
+    
+    RCControl --> MotorOutput[모터/서보 제어]
     SerialRead -->|수신됨| ParseCmd[명령 파싱]
     SerialRead -->|타임아웃| Stop[정지 신호]
     
     ParseCmd --> MotorOutput
     Stop --> MotorOutput
-    MotorOutput --> Loop
+    MotorOutput --> Start
     
     subgraph Vision [라즈베리파이 영상처리]
-        Camera[카메라 입력] --> ROI[ROI 추출]
-        ROI --> Binary[이진화 처리]
-        Binary --> Contour[외곽선 검출]
-        Contour --> LineCheck{라인 검출}
-        
-        LineCheck -->|성공| CalcSteering[조향각 계산]
+        Camera[카메라] --> ROI[ROI 추출] --> Binary[이진화]
+        Binary --> LineCheck{라인 검출}
+        LineCheck -->|성공| Forward[전진 신호]
         LineCheck -->|실패| Reverse[후진 신호]
-        
-        CalcSteering --> Forward[전진 신호]
-        Reverse --> SendSerial[시리얼 전송]
-        Forward --> SendSerial
-        SendSerial --> Camera
+        Forward --> SendSerial[시리얼 전송]
+        Reverse --> SendSerial
     end
     
     Auto -.-> Vision
