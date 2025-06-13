@@ -219,8 +219,9 @@ lib_deps =
 
 ## 🔄 동작 원리 및 제어 방법
 
-### 📊 전체 시스템 플로우차트
+### 📊 시스템 플로우차트
 
+#### 🔧 Arduino 제어 시스템
 ```mermaid
 flowchart LR
     Start([시스템 시작]) --> CheckMode{CH5 모드 스위치}
@@ -237,19 +238,25 @@ flowchart LR
     
     ParseCmd --> MotorOutput
     Stop --> MotorOutput
-    MotorOutput --> Start
+```
+
+#### 🐍 라즈베리파이 영상 처리 시스템
+```mermaid
+flowchart LR
+    Camera[카메라 입력] --> ROI[ROI 추출<br/>하단 500px]
+    ROI --> Process[영상 처리<br/>Gray→Blur→Binary]
+    Process --> Contour[외곽선 검출]
+    Contour --> LineCheck{라인 검출}
     
-    subgraph Vision [라즈베리파이 영상처리]
-        Camera[카메라] --> ROI[ROI 추출] --> Binary[이진화]
-        Binary --> LineCheck{라인 검출}
-        LineCheck -->|성공| Forward[전진 신호]
-        LineCheck -->|실패| Reverse[후진 신호]
-        Forward --> SendSerial[시리얼 전송]
-        Reverse --> SendSerial
-    end
+    LineCheck -->|성공| CalcSteering[조향각 계산]
+    LineCheck -->|실패| Backward[후진 모드]
     
-    Auto -.-> Vision
-    Vision -.-> SerialRead
+    CalcSteering --> Forward[전진: 1570]
+    Backward --> Reverse[후진: 1435]
+    
+    Forward --> SerialSend[시리얼 전송<br/>Arduino로]
+    Reverse --> SerialSend
+    SerialSend --> Camera
 ```
 
 ### 1. 모드 전환 시스템
