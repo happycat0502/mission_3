@@ -9,8 +9,7 @@
 - **RadioLink AT-9 Tx + R9DS Rx**
 - 채널 구성: CH2(전후진), CH4(좌우 조향), CH5(모드 스위치)
 - **Mode: Acrobatic** 모드에서 사용 (수동 PWM 제어에 적합)
-  ![image](https://github.com/user-attachments/assets/5d01620e-2241-4424-bab5-fdc202db363f)
-
+![image](https://github.com/user-attachments/assets/597c4d9a-94ef-4215-b657-ec14da977c54)
 
 
 
