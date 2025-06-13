@@ -221,42 +221,64 @@ lib_deps =
 
 ### 📊 시스템 플로우차트
 
-#### 🔧 Arduino 제어 시스템
+#### 🔧 Arduino 제어 시스템 (`main.cpp`)
 ```mermaid
 flowchart LR
-    Start([시스템 시작]) --> CheckMode{CH5 모드 스위치}
+    Start([시스템 시작<br/>setup 함수]) --> InitPins[핀 초기화<br/>Pin 2,3,4: 입력<br/>Pin 6,7,8,9: 출력]
+    InitPins --> SetupISR[인터럽트 설정<br/>50Hz 타이머<br/>PWM 인터럽트]
+    SetupISR --> TaskInit[작업 스케줄러<br/>50ms, 20ms, 1000ms]
     
-    CheckMode -->|PWM ≤ 1100| Manual[수동 모드]
-    CheckMode -->|PWM ≥ 1800| Auto[자율주행 모드]
+    TaskInit --> ReadRC[RC 신호 읽기<br/>CH2: Pin 2<br/>CH4: Pin 3<br/>CH5: Pin 4]
+    ReadRC --> CheckMode{CH5 PWM 값<br/>히스테리시스 적용}
     
-    Manual --> RCControl[RC PWM 직접 출력]
-    Auto --> SerialRead{시리얼 데이터}
+    CheckMode -->|≤ 1100| Manual[수동 모드<br/>RC 직접 제어]
+    CheckMode -->|≥ 1800| Auto[자율주행 모드<br/>시리얼 통신]
+    CheckMode -->|1100~1800| Keep[현재 모드 유지<br/>노이즈 방지]
     
-    RCControl --> MotorOutput[모터/서보 제어]
-    SerialRead -->|수신됨| ParseCmd[명령 파싱]
-    SerialRead -->|타임아웃| Stop[정지 신호]
+    Manual --> MapRC[RC PWM 매핑<br/>1000-2000 범위<br/>역방향 조향]
+    Auto --> SerialCheck{시리얼 수신<br/>9600 baud<br/>1초 타임아웃}
+    Keep --> CheckMode
     
-    ParseCmd --> MotorOutput
-    Stop --> MotorOutput
+    MapRC --> PWMOut[PWM 출력<br/>Pin 6: 속도<br/>Pin 7: 조향]
+    SerialCheck -->|"SPEED,STEERING"| Parse[데이터 파싱<br/>유효성 검사<br/>1000-2000 범위]
+    SerialCheck -->|타임아웃/오류| SafeStop[안전 정지<br/>1500, 1500]
+    
+    Parse --> PWMOut
+    SafeStop --> PWMOut
+    PWMOut --> LEDControl[LED 제어<br/>Pin 8: 좌회전<br/>Pin 9: 우회전]
+    LEDControl --> Status[상태 출력<br/>1초마다 시리얼]
+    Status --> ReadRC
 ```
 
-#### 🐍 라즈베리파이 영상 처리 시스템
+#### 🐍 라즈베리파이 영상 처리 시스템 (`app.py`)
 ```mermaid
 flowchart LR
-    Camera[카메라 입력] --> ROI[ROI 추출<br/>하단 500px]
-    ROI --> Process[영상 처리<br/>Gray→Blur→Binary]
-    Process --> Contour[외곽선 검출]
-    Contour --> LineCheck{라인 검출}
+    CamInit[카메라 초기화<br/>PiCamera2<br/>1920x1080 RGB] --> SerialInit[시리얼 연결<br/>자동 포트 검색<br/>/dev/ttyUSB*]
+    SerialInit --> WebInit[웹서버 시작<br/>Flask + WebSocket<br/>포트 5000]
     
-    LineCheck -->|성공| CalcSteering[조향각 계산]
-    LineCheck -->|실패| Backward[후진 모드]
+    WebInit --> Capture[영상 캡처<br/>20 FPS<br/>실시간 처리]
+    Capture --> ROIExtract[ROI 추출<br/>하단 500px<br/>연산량 75% 감소]
+    ROIExtract --> GrayScale[Grayscale 변환<br/>RGB → Gray<br/>처리 속도 향상]
     
-    CalcSteering --> Forward[전진: 1570]
-    Backward --> Reverse[후진: 1435]
+    GrayScale --> Blur[가우시안 블러<br/>5x5 커널<br/>노이즈 제거]
+    Blur --> Threshold[이진화<br/>임계값: 160<br/>THRESH_BINARY_INV]
+    Threshold --> Morph[형태학적 연산<br/>Opening: 노이즈 제거<br/>Closing: 라인 연결]
     
-    Forward --> SerialSend[시리얼 전송<br/>Arduino로]
-    Reverse --> SerialSend
-    SerialSend --> Camera
+    Morph --> FindContour[외곽선 검출<br/>RETR_EXTERNAL<br/>면적 필터링 >6400px]
+    FindContour --> CalcMoment{모멘트 계산<br/>중심점 추출}
+    
+    CalcMoment -->|라인 검출 성공| CalcError[오차 계산<br/>center - line_center<br/>민감도: 1.05]
+    CalcMoment -->|라인 미검출| BackwardMode[후진 모드<br/>라인 재검출 시도]
+    
+    CalcError --> SteerCalc[조향 PWM 계산<br/>1500 + (오차 × 민감도)<br/>범위: 1000-2000]
+    BackwardMode --> BackwardPWM[후진 신호<br/>속도: 1435<br/>조향: 1500]
+    
+    SteerCalc --> ForwardPWM[전진 신호<br/>속도: 1570<br/>계산된 조향값]
+    ForwardPWM --> SerialSend[시리얼 전송<br/>형식: "SPEED,STEERING\n"<br/>오류 처리 및 재연결]
+    BackwardPWM --> SerialSend
+    
+    SerialSend --> WebStream[웹 스트리밍<br/>Base64 인코딩<br/>상태 정보 포함]
+    WebStream --> Capture
 ```
 
 ### 1. 모드 전환 시스템
