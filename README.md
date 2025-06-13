@@ -223,65 +223,74 @@ lib_deps =
 
 ```mermaid
 flowchart TD
-    Start([시스템 시작]) --> Init[Arduino 초기화]
-    Init --> Setup[핀 설정 및 인터럽트 설정]
-    Setup --> MainLoop{메인 루프}
+    %% Arduino 메인 시스템
+    Start([시스템 시작]) --> MainLoop{메인 루프}
+    MainLoop --> ReadRC[RC 신호 읽기]
+    ReadRC --> CheckMode{모드 스위치<br/>CH5 PWM}
     
-    MainLoop --> ReadRC[RC 신호 읽기<br/>CH2, CH4, CH5]
-    ReadRC --> CheckMode{CH5 모드 스위치<br/>PWM 값 확인}
+    %% 모드 분기
+    CheckMode -->|≤ 1100| Manual[🎮 수동 모드]
+    CheckMode -->|≥ 1800| Auto[🤖 자율주행 모드]
+    CheckMode -->|중간값| Hysteresis[현재 모드 유지]
     
-    CheckMode -->|PWM ≤ 1100| ManualMode[🎮 수동 모드]
-    CheckMode -->|PWM ≥ 1800| AutoMode[🤖 자율주행 모드]
-    CheckMode -->|1100 < PWM < 1800| Hysteresis[히스테리시스<br/>현재 모드 유지]
+    %% 수동 모드 처리
+    Manual --> DirectControl[RC 신호 직접 전달<br/>CH2→속도, CH4→조향]
+    DirectControl --> Output[모터 제어 출력]
     
-    ManualMode --> DirectPWM[RC PWM 직접 전달<br/>CH2→속도, CH4→조향]
-    DirectPWM --> MotorOutput[모터/서보 제어<br/>Pin 6, 7]
+    %% 자율주행 모드 처리
+    Auto --> SerialCheck{시리얼 수신?}
+    SerialCheck -->|Yes| ParseData[데이터 파싱<br/>SPEED,STEERING]
+    SerialCheck -->|Timeout| SafeStop[안전 정지<br/>1500,1500]
     
-    AutoMode --> SerialCheck{시리얼 데이터<br/>수신 확인}
-    SerialCheck -->|수신됨| ParseSerial[시리얼 파싱<br/>SPEED,STEERING]
-    SerialCheck -->|타임아웃| SafetyStop[안전 정지<br/>1500, 1500]
+    ParseData --> Validate{유효한 데이터?}
+    Validate -->|Valid| Output
+    Validate -->|Invalid| SafeStop
+    SafeStop --> Output
     
-    ParseSerial --> ValidateData{데이터 유효성<br/>1000-2000 범위}
-    ValidateData -->|유효| UpdatePWM[PWM 값 업데이트]
-    ValidateData -->|무효| IgnoreData[데이터 무시]
+    %% 출력 및 피드백
+    Output --> LEDStatus[LED 상태 표시]
+    LEDStatus --> MainLoop
     
-    UpdatePWM --> MotorOutput
-    SafetyStop --> MotorOutput
-    IgnoreData --> MotorOutput
-    
-    MotorOutput --> LEDControl[LED 상태 표시<br/>조향 방향 표시]
-    LEDControl --> StatusOutput[시리얼 상태 출력]
-    StatusOutput --> MainLoop
-    
+    %% 히스테리시스 처리
     Hysteresis --> CurrentMode{현재 모드}
-    CurrentMode -->|수동| ManualMode
-    CurrentMode -->|자율| AutoMode
+    CurrentMode -->|수동| Manual
+    CurrentMode -->|자율| Auto
     
-    subgraph RaspberryPi [라즈베리파이 처리]
-        CameraInput[📷 카메라 영상 입력] --> ROIExtract[ROI 추출<br/>하단 500px]
-        ROIExtract --> ImageProcess[영상 처리<br/>Grayscale → Blur → Binary]
-        ImageProcess --> MorphOps[형태학적 연산<br/>Opening + Closing]
-        MorphOps --> ContourDetect[외곽선 검출]
-        ContourDetect --> LineCenter{라인 중심 계산}
+    %% 라즈베리파이 영상 처리 시스템
+    subgraph RPi ["🔹 라즈베리파이 영상 처리"]
+        Camera[📷 카메라 입력] --> ROI[ROI 설정<br/>하단 500px]
+        ROI --> Process[영상 처리<br/>Gray→Blur→Binary]
+        Process --> Contour[외곽선 검출]
+        Contour --> LineDetect{라인 검출}
         
-        LineCenter -->|검출 성공| CalcSteering[조향각 계산<br/>비례 제어]
-        LineCenter -->|검출 실패| BackwardSignal[후진 신호<br/>1435]
+        LineDetect -->|성공| Steering[조향각 계산<br/>비례 제어]
+        LineDetect -->|실패| Backward[후진 모드]
         
-        CalcSteering --> ForwardSignal[전진 신호<br/>1570]
-        ForwardSignal --> SerialSend[시리얼 전송<br/>SPEED,STEERING]
-        BackwardSignal --> SerialSend
-        
-        SerialSend --> CameraInput
+        Steering --> Forward[전진: 1570]
+        Backward --> BackSignal[후진: 1435]
+        Forward --> Send[시리얼 전송]
+        BackSignal --> Send
+        Send --> Camera
     end
     
-    AutoMode -.->|자율주행 모드 시| RaspberryPi
-    RaspberryPi -.->|제어 신호 전송| SerialCheck
+    %% 시스템 간 연결
+    Auto -.->|활성화| RPi
+    RPi -.->|제어신호| SerialCheck
     
-    style Start fill:#e1f5fe
-    style ManualMode fill:#fff3e0
-    style AutoMode fill:#e8f5e8
-    style MotorOutput fill:#fce4ec
-    style SafetyStop fill:#ffebee
+    %% 스타일링
+    classDef startEnd fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef process fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef decision fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef manual fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    classDef auto fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    classDef safety fill:#ffebee,stroke:#d32f2f,stroke-width:3px
+    
+    class Start,MainLoop startEnd
+    class Output,LEDStatus,DirectControl process
+    class CheckMode,SerialCheck,Validate,LineDetect,CurrentMode decision
+    class Manual,Hysteresis manual
+    class Auto,ParseData auto
+    class SafeStop safety
 ```
 
 ### 1. 모드 전환 시스템
