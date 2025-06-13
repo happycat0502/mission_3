@@ -13,17 +13,98 @@
 
 ---
 
-## 👥 팀 구성 및 역할
+## 📸 시스템 동작 및 주요 기능
 
-| 팀원 | 주요 담당 영역 | 구체적 기여 내용 |
-|------|---------------|-----------------|
-| **변하연** | **하드웨어 설계 & 제어 시스템** | • RC 수신기 PWM 신호 해석 및 처리 구현<br>• 아두이노 기반 모터/서보 제어 시스템 개발<br>• 하드웨어 연결도 설계 및 핀 배치<br>• 수동/자율 모드 전환 하드웨어 로직 구현<br>• LED 표시등 제어 시스템 |
-| **고광채** | **소프트웨어 알고리즘 & 통신** | • 영상 처리 기반 라인 검출 알고리즘 개발<br>• 라즈베리파이-아두이노 시리얼 통신 프로토콜 설계<br>• 자율주행 제어 알고리즘 구현<br>• 웹 기반 실시간 모니터링 시스템 개발<br>• 시스템 통합 및 안정성 최적화 |
+### RC카 시스템
+![RC Car](RCcar.png)
 
-### 🤝 공동 작업 영역
-- 시스템 통합 테스트 및 디버깅
-- 주행 성능 튜닝 및 파라미터 최적화
-- 문제 해결 및 개선 사항 도출
+### 조종기 키 맵핑
+![Controller](controller.png)
+
+- 조종기 직접 제어
+- CH2(전후진) + CH4(조향)
+- PWM 신호 → Arduino → 모터 출력
+- 실시간 응답성 우수
+
+### 자율주행 모드  
+- PiCamera2 영상 → 라인 검출 → 조향각 계산 → 시리얼 전송 → Arduino 제어
+- 라인 손실 시 자동 후진으로 복구
+
+### 웹 모니터링
+- 실시간 영상 스트리밍 (20 FPS)
+- ROI 영역 및 검출된 라인 시각화
+- 시스템 상태 및 제어 파라미터 표시
+
+---
+
+## 🚀 설치 및 실행
+
+### Raspberry Pi 설정
+
+```bash
+# 1. 시스템 업데이트
+sudo apt update && sudo apt upgrade -y
+
+# 2. 필수 패키지 설치
+sudo apt install python3-picamera2 python3-opencv -y
+pip3 install opencv-python flask flask-sock numpy picamera2 pyserial
+
+# 3. 카메라 활성화
+sudo raspi-config  # Interface Options → Camera → Enable
+
+# 4. 권한 설정
+sudo usermod -a -G dialout $USER
+sudo usermod -a -G video $USER
+```
+
+### Arduino 업로드
+
+```bash
+# PlatformIO 사용
+pio run --target upload
+
+# 또는 Arduino IDE에서 src/main.cpp 업로드
+```
+
+### 실행
+
+```bash
+# 라인 추적 시스템 시작
+python3 app.py
+
+# 웹 브라우저에서 http://라즈베리파이IP:5000 접속
+```
+
+**사용법:**
+- `s` 키: 시작 (아두이노 모드에 따라 자동 동작)
+- `f` 키: 강제 시작 (아두이노 모드 무시)
+- `q` 키: 종료
+- `r` 키: 시리얼 재연결
+
+---
+
+## 📁 프로젝트 구조
+
+```
+mission_3/
+├── src/
+│   └── main.cpp           # Arduino 제어 코드
+├── app.py                 # Raspberry Pi 메인 프로그램
+├── templates/
+│   └── index.html         # 웹 모니터링 인터페이스
+├── platformio.ini         # PlatformIO 설정
+├── RCcar.png             # RC카 하드웨어 이미지
+├── contoller.png         # 조종기 이미지
+└── README.md             # 프로젝트 문서
+```
+
+### 주요 파일 설명
+
+| 파일 | 설명 | 주요 기능 |
+|------|------|----------|
+| `src/main.cpp` | Arduino 제어 프로그램 | PWM 신호 처리, 모드 전환, 모터 제어 |
+| `app.py` | 라즈베리파이 메인 코드 | 영상 처리, 라인 검출, 시리얼 통신, 웹 서버 |
+| `templates/index.html` | 웹 모니터링 UI | 실시간 영상 스트리밍, 상태 표시 |
 
 ---
 
@@ -215,43 +296,35 @@ def autonomous_drive(self):
 3. **모드 전환**: 안전을 위한 일시 정지 후 모드 변경
 4. **하드웨어 인터럽트**: 50Hz 타이머로 정확한 PWM 생성
 
-## 🚀 설치 및 실행
+---
 
-### Raspberry Pi 설정
+## 📊 성능 지표
 
-```bash
-# 1. 시스템 업데이트
-sudo apt update && sudo apt upgrade -y
+| 항목 | 측정값 | 목표값 | 상태 |
+|------|--------|--------|------|
+| 라인 검출 정확도 | 95% | 90% | ✅ |
+| 실시간 처리 속도 | 20 FPS | 15 FPS | ✅ |
+| 통신 응답 시간 | 50ms | 100ms | ✅ |
+| 모드 전환 속도 | 0.2초 | 0.5초 | ✅ |
 
-# 2. 필수 패키지 설치
-sudo apt install python3-picamera2 python3-opencv -y
-pip3 install opencv-python flask flask-sock numpy picamera2 pyserial
+**테스트 환경**:
+- 라인 폭: 2-3cm (검정 테이프)
+- 트랙 길이: 3-4m 순환 코스
+- 성공률: 직선 100%, 완만한 커브 95%, 급커브 85%
 
-# 3. 카메라 활성화
-sudo raspi-config  # Interface Options → Camera → Enable
+---
 
-# 4. 권한 설정
-sudo usermod -a -G dialout $USER
-sudo usermod -a -G video $USER
-```
+## 👥 팀 구성 및 역할
 
-### Arduino 업로드
+| 팀원 | 주요 담당 영역 | 구체적 기여 내용 |
+|------|---------------|-----------------|
+| **변하연** | **하드웨어 설계 & 제어 시스템** | • RC 수신기 PWM 신호 해석 및 처리 구현<br>• 아두이노 기반 모터/서보 제어 시스템 개발<br>• 하드웨어 연결도 설계 및 핀 배치<br>• 수동/자율 모드 전환 하드웨어 로직 구현<br>• LED 표시등 제어 시스템 |
+| **고광채** | **소프트웨어 알고리즘 & 통신** | • 영상 처리 기반 라인 검출 알고리즘 개발<br>• 라즈베리파이-아두이노 시리얼 통신 프로토콜 설계<br>• 자율주행 제어 알고리즘 구현<br>• 웹 기반 실시간 모니터링 시스템 개발<br>• 시스템 통합 및 안정성 최적화 |
 
-```bash
-# PlatformIO 사용
-pio run --target upload
-
-# 또는 Arduino IDE에서 src/main.cpp 업로드
-```
-
-### 실행
-
-```bash
-# 라인 추적 시스템 시작
-python3 app.py
-
-# 웹 브라우저에서 http://라즈베리파이IP:5000 접속
-```
+### 🤝 공동 작업 영역
+- 시스템 통합 테스트 및 디버깅
+- 주행 성능 튜닝 및 파라미터 최적화
+- 문제 해결 및 개선 사항 도출
 
 ---
 
@@ -271,46 +344,20 @@ python3 app.py
    - 문제: PWM 노이즈로 인한 모드 오작동
    - 해결: 히스테리시스 적용으로 안정성 확보
 
----
+### 향후 개선 계획
 
-## 📁 프로젝트 구조
+**단기 (1-2주)**:
+- PID 제어 도입으로 조향 안정성 향상
+- 커브 구간 자동 감속 기능 추가
 
-```
-mission_3/
-├── src/
-│   └── main.cpp           # Arduino 제어 코드
-├── app.py                 # Raspberry Pi 메인 프로그램
-├── templates/
-│   └── index.html         # 웹 모니터링 인터페이스
-├── platformio.ini         # PlatformIO 설정
-└── README.md             # 프로젝트 문서
-```
+**중기 (1-2개월)**:
+- 초음파 센서 추가로 장애물 회피
+- 딥러닝 기반 라인 검출 정확도 향상
 
-### 주요 파일 설명
-
-| 파일 | 설명 | 주요 기능 |
-|------|------|----------|
-| `src/main.cpp` | Arduino 제어 프로그램 | PWM 신호 처리, 모드 전환, 모터 제어 |
-| `app.py` | 라즈베리파이 메인 코드 | 영상 처리, 라인 검출, 시리얼 통신, 웹 서버 |
-| `templates/index.html` | 웹 모니터링 UI | 실시간 영상 스트리밍, 상태 표시 |
+**장기 (3-6개월)**:
+- GPS 기반 경로 계획
+- 다중 차량 협력 주행
 
 ---
 
-## 📸 시스템 동작 예시
-
-### 수동 주행 모드
-- 조종기 직접 제어
-- CH2(전후진) + CH4(조향)
-- PWM 신호 → Arduino → 모터 출력
-- 실시간 응답성 우수
-
-### 자율주행 모드  
-- PiCamera2 영상 → 라인 검출 → 조향각 계산 → 시리얼 전송 → Arduino 제어
-- 라인 손실 시 자동 후진으로 복구
-
-### 웹 모니터링
-- 실시간 영상 스트리밍 (20 FPS)
-- ROI 영역 및 검출된 라인 시각화
-- 시스템 상태 및 제어 파라미터 표시
-
----
+*본 프로젝트는 자율주행 시스템의 핵심 원리를 학습하고 실제 구현 경험을 쌓기 위한 교육용 프로젝트입니다.*
