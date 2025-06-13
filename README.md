@@ -243,3 +243,84 @@ def autonomous_drive(self, frame):
 
 ---
 
+## 6. 작동 예시
+
+### 🎮 수동 모드
+- 조종기에서 PWM을 직접 제어
+- 응답 속도가 빠르며 테스트 및 디버깅에 유용
+- 모드 스위치(CH5) HIGH 상태에서 작동
+
+### 🤖 자율 주행 모드
+- PiCamera 영상 기반으로 라인을 감지하여 조향 및 속도 결정
+- Raspberry Pi → Arduino 시리얼 전송으로 동작
+- 모드 스위치(CH5) LOW 상태에서 작동
+- 라인 미검출 시 자동 후진 수행
+
+### 🌐 Web UI
+- Flask 기반 실시간 스트리밍 + 상태 시각화 제공
+- 주요 기능:
+  - 실시간 PiCamera 영상
+  - Steering, Speed, Mode 값 표시
+  - 연결 상태 감지 및 재연결
+
+---
+
+## 7. 문제 해결 & 트러블슈팅
+
+### 📡 시리얼 통신 오류
+- 원인: 초기 연결 지연, 시리얼 버퍼 꼬임
+- 조치:
+  - `check_serial_connection()`으로 연결 유무 확인 후 재연결
+  - 잘못된 문자열 파싱 방지 위해 `\n` 기준으로 커맨드 분리
+  - 수신 타임아웃 발생 시 버퍼 클리어 처리
+
+### 🔐 PWM 안전정지 / Fail-Safe
+- 문제: 라즈베리파이에서 신호가 끊기면 RC카가 멈추지 않음
+- 해결:
+  - Arduino에서 수신 시간 측정
+  - 1초 이상 미수신 시 PWM 중립값(1500) 자동 적용 → 안전 정지
+  - `TIMER1_COMPA_vect` 인터럽트로 주기적 PWM 유지
+
+---
+
+## 8. 설치 및 실행 방법
+
+### 🔌 Raspberry Pi (Python 환경)
+
+```bash
+# 필요한 패키지 설치
+pip install opencv-python flask flask-sock numpy picamera2
+
+# 실행
+python3 app.py
+```
+
+- 웹 브라우저 접속 주소: `http://<라즈베리파이_IP>:5000`
+
+---
+
+### ⚙️ Arduino
+
+- Arduino IDE에서 `main.cpp` 업로드
+- 시리얼 속도 9600bps 확인
+- PWM 핀, 수신 핀, 모드 핀 연결 확인
+
+---
+
+## 9. 팀원 & 기여자
+
+| 이름 | 역할 |
+|------|------|
+| **변하연** | 수신기에서 PWM 신호 읽기, DC 모터/ 서보 모터에 PWM 출력, Pi Camera 영상 실시간 수신 및 처리 |
+| **고광채** | 시리얼 통신 수신 및 피싱 처리, ROI 설정 및 라인 검출, 중심 오차 계산 및 조향 보정, Gaussian Blur → Threshold → Contour 중심 추적, 자율&수동 주행 로직 |
+
+---
+
+## 10.  느낀점
+
+
+### ✨ 느낀 점
+
+
+---
+
