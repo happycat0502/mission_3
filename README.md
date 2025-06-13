@@ -9,6 +9,11 @@
 - **RadioLink AT-9 Tx + R9DS Rx**
 - 채널 구성: CH2(전후진), CH4(좌우 조향), CH5(모드 스위치)
 - **Mode: Acrobatic** 모드에서 사용 (수동 PWM 제어에 적합)
+  ![image](https://github.com/user-attachments/assets/5d01620e-2241-4424-bab5-fdc202db363f)
+![image](https://github.com/user-attachments/assets/5d01620e-2241-4424-bab5-fdc202db363f)
+![Uploading image.png…]()
+![Uploading image.png…]()
+
 
 ### • 핵심 기술 개요
 - 송수신기에서 수신한 PWM을 Arduino가 해석하여 수동 모드 동작 제어
